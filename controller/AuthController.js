@@ -33,7 +33,8 @@ class AuthController {
           });
         } else {
           const UHR_Details = await InstanceUtils.getHRInfomation(username);
-
+       
+          
           if (UHR_Details && !UHR_Details.err) {
             const token = InstanceUtils.getToken(UHR_Details.payload); // สร้าง Token ;
 
@@ -88,14 +89,17 @@ class AuthController {
                           value: key.values[0] !== "" ? key.values[0] : "",
                         });
                       }
-
+                    
+                      
                       return res.json({
                         err: false,
                         msg: "Success!",
                         results: newArrayKey,
                         status: "Ok",
                         token: token,
-                        role:UHR_Details.payload.role
+                        role:UHR_Details.payload.role,
+                        empCode:UHR_Details.payload.emp_code,
+                        factory:UHR_Details.payload.factory
                       });
 
 
@@ -127,14 +131,17 @@ class AuthController {
                       for (let i = 0; i < newArray.length; i++) {
                         resultObject[newArray[i].field] = newArray[i].value;
                       }
-
+                  
+                      
                       return res.json({
                         err: false,
                         msg: "Success!",
                         results: resultObject,
                         status: "Ok",
                         token: token,
-                        role:UHR_Details.payload.role
+                        role:UHR_Details.payload.role,
+                        empCode:UHR_Details.payload.emp_code,
+                        factory:UHR_Details.payload.factory
                       });
                     }
                   } else {

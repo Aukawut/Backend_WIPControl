@@ -63,7 +63,37 @@ class StockController {
       });
     }
   }
-
+  async GetStockByFactory(req, res) {
+    try {
+      const { factory } = req.params;
+      const pool = await new sql.ConnectionPool(sqlConfig).connect();
+      const results = await pool
+        .request()
+        .input("factory", sql.NVarChar, factory)
+        .query(
+          `SELECT * FROM [SRRYAPP02].[DB_AVP2WIPCONTROL].[dbo].[V_StockMetalByPart] WHERE [Factory_Part] = @factory
+           ORDER BY PartNo`
+        );
+      if (results && results?.recordset?.length > 0) {
+        return res.json({
+          err: false,
+          results: results?.recordset,
+          status: "Ok",
+        });
+      } else {
+        return res.json({
+          err: true,
+          results: [],
+        });
+      }
+    } catch (err) {
+      console.log(err);
+      return res.json({
+        err: true,
+        results: err.message,
+      });
+    }
+  }
   async GetLotAboutToExpire(req, res) {
     const formatDate = moment(new Date()).add(2, "days").format("YYYY-MM-DD"); // 2 วันก่อนหมด
 

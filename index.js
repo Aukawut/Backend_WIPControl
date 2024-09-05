@@ -15,6 +15,7 @@ const storage = multer.diskStorage({
     cb(null, fileName);
   },
 });
+
 const upload = multer({
   storage: storage,
   limits: {
@@ -34,6 +35,28 @@ const upload = multer({
     }
   },
 });
+
+const uploadPlan = multer({
+  storage: storage,
+  limits: {
+    fileSize: 1024 * 1024 * 5, // 5 Mb
+  },
+
+  fileFilter: (_, file, cb) => {
+    // pdf excel word powerpoint
+    if (
+      file.mimetype == "application/vnd.ms-excel" //xls 
+    || file.mimetype == "application/pdf" // Pdf
+    ) {
+      //allowed
+      cb(null, true);
+    } else {
+      cb(new Error("File not allow!"), false);
+    }
+  },
+});
+
+
 
 // <------ Controller -------->
 const StockController = require("./controller/StockController");
@@ -63,6 +86,7 @@ app.use("/private", express.static("private"));
 // <------- Stock ----------->
 app.get("/stock/all", stock.GetAllStock);
 app.get("/stock/bypart", stock.GetAllStockByPart);
+app.get("/stock/byFactory/:factory", stock.GetStockByFactory);
 app.get("/stock/lot/aboutexpire", stock.GetLotAboutToExpire);
 
 //<------- WIP --------->
@@ -77,13 +101,18 @@ app.post("/plan/adhesive",upload.single("file"), plan.SaveAdhesivePlan);
 
 //<------ Adhesive Controller -------> 
 app.get("/adhesive/actual",adhesive.GetAdhesiveActual);
+app.post("/adhesive/actual/save",adhesive.SaveActual);
+app.put("/adhesive/actual/update/:id",adhesive.UpdateActual);
 
 //<------ Production ------>
 app.get("/production/transfer/:start/:end",prodution.GetProdTrnByDate);
 app.get("/production/trans/detail/:tranNo/:factory",prodution.GetProdTrnDetailByTranNo);
 app.get("/production/trans/summary/:tranNo/:factory",prodution.GetProdTrnSummaryByTranNo);
 app.get("/production/closed/detail/:tranNo/:factory",prodution.GetProdClosedDetailByTranNo);
+app.post("/production/save/plan",uploadPlan.fields([{name : "file",maxCount:1},{name : "pdfFile",maxCount:1}]),prodution.SaveProductionPlan);
 app.get("/production/closed/:factory/:start/:end",prodution.GetProdClosedByFactory);
+app.get("/production/plan/:factory/:start/:end",prodution.GetProdPlanFactory);
+
  
 //<------- Auth --------->
 app.post("/login/domain",auth.DomainLogin);
