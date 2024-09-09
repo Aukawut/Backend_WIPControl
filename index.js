@@ -101,8 +101,15 @@ app.post("/plan/adhesive",upload.single("file"), plan.SaveAdhesivePlan);
 
 //<------ Adhesive Controller -------> 
 app.get("/adhesive/actual",adhesive.GetAdhesiveActual);
+app.get("/adhesive/actual/:start/:end",adhesive.GetAdhesiveActualByDate);
 app.post("/adhesive/actual/save",adhesive.SaveActual);
 app.put("/adhesive/actual/update/:id",adhesive.UpdateActual);
+app.post("/adhesive/request/metal",adhesive.RequestMetal);
+app.get("/adhesive/request/metal/:reqNo",adhesive.GetMetalRequestByReqNo);
+app.get("/request/metal/:factory",adhesive.GetMetalRequestByFactory);
+app.get("/request/metal/detail/:reqNo",adhesive.GetRequestDetailByReq);
+app.put("/request/cancel/:reqNo",adhesive.CancelRequestMetal)
+app.put("/request/metal/approve/:reqNo",adhesive.ApproveRequestMetal)
 
 //<------ Production ------>
 app.get("/production/transfer/:start/:end",prodution.GetProdTrnByDate);
@@ -112,10 +119,13 @@ app.get("/production/closed/detail/:tranNo/:factory",prodution.GetProdClosedDeta
 app.post("/production/save/plan",uploadPlan.fields([{name : "file",maxCount:1},{name : "pdfFile",maxCount:1}]),prodution.SaveProductionPlan);
 app.get("/production/closed/:factory/:start/:end",prodution.GetProdClosedByFactory);
 app.get("/production/plan/:factory/:start/:end",prodution.GetProdPlanFactory);
+app.get("/production/avp/:start/:end/:factory",prodution.GetProdPlanByFactory);
+app.get("/production/weekly/:start/:end/:factory",prodution.GetWeeklyPlan);
 
  
 //<------- Auth --------->
 app.post("/login/domain",auth.DomainLogin);
+app.get("/auth/token/approve/metal/:reqNo",auth.AuthApproveReqMetal);
 
 app.listen(PORT, () => {
   console.log(`Server is running on port : ${PORT}`);

@@ -1,7 +1,7 @@
 const Utils = require("../utils/Utils");
-
+const jwt = require("jsonwebtoken");
 const ldap = require("ldapjs");
-require("dotenv").config() ;
+require("dotenv").config();
 
 const InstanceUtils = new Utils();
 
@@ -33,8 +33,7 @@ class AuthController {
           });
         } else {
           const UHR_Details = await InstanceUtils.getHRInfomation(username);
-       
-          
+
           if (UHR_Details && !UHR_Details.err) {
             const token = InstanceUtils.getToken(UHR_Details.payload); // สร้าง Token ;
 
@@ -89,20 +88,17 @@ class AuthController {
                           value: key.values[0] !== "" ? key.values[0] : "",
                         });
                       }
-                    
-                      
+
                       return res.json({
                         err: false,
                         msg: "Success!",
                         results: newArrayKey,
                         status: "Ok",
                         token: token,
-                        role:UHR_Details.payload.role,
-                        empCode:UHR_Details.payload.emp_code,
-                        factory:UHR_Details.payload.factory
+                        role: UHR_Details.payload.role,
+                        empCode: UHR_Details.payload.emp_code,
+                        factory: UHR_Details.payload.factory,
                       });
-
-
                     } else {
                       let newArray = [];
                       let attr = resultLdap.attributes?.map(
@@ -122,7 +118,7 @@ class AuthController {
                       }
 
                       newArray.push({ field: attrIsNull[0], value: "" }); // Push Key ใหม่ที่ไม่มีข้อมูลใน Ldap แต่มีการ Search โดย value = ""
-                    
+
                       ldapClient.unbind();
 
                       let resultObject = {};
@@ -131,17 +127,16 @@ class AuthController {
                       for (let i = 0; i < newArray.length; i++) {
                         resultObject[newArray[i].field] = newArray[i].value;
                       }
-                  
-                      
+
                       return res.json({
                         err: false,
                         msg: "Success!",
                         results: resultObject,
                         status: "Ok",
                         token: token,
-                        role:UHR_Details.payload.role,
-                        empCode:UHR_Details.payload.emp_code,
-                        factory:UHR_Details.payload.factory
+                        role: UHR_Details.payload.role,
+                        empCode: UHR_Details.payload.emp_code,
+                        factory: UHR_Details.payload.factory,
                       });
                     }
                   } else {
@@ -163,10 +158,53 @@ class AuthController {
           }
         }
       });
-
-    
     } catch (err) {
       console.log(err);
+      return res.json({
+        err: true,
+        msg: err.message,
+      });
+    }
+  }
+
+  async AuthApproveReqMetal(req, res) {
+    try {
+      const secret = process.env.TOKEN_APPROVE;
+      const authHeader = req.headers.authorization;
+      const { reqNo } = req.params;
+
+      if (authHeader) {
+        const token = authHeader.split(" ")[1];
+
+        if (token) {
+          jwt.verify(token, secret, (err, decoded) => {
+            if (err) {
+              return res.status(401).json({ err: true, msg: err.message });
+            }
+        
+            if (decoded.requestNo !== reqNo) {
+              return res.json({
+                err: true,
+                msg: "Token isn't correct!",
+              });
+            }
+
+            return res.json({
+              err: false,
+              token: token,
+              data: decoded,
+              status: "Ok",
+            });
+
+          });
+        } else {
+          return res.json({
+            err: true,
+            msg: "Token is required!",
+          });
+        }
+      }
+    } catch (err) {
       return res.json({
         err: true,
         msg: err.message,

@@ -71,8 +71,12 @@ class StockController {
         .request()
         .input("factory", sql.NVarChar, factory)
         .query(
-          `SELECT * FROM [SRRYAPP02].[DB_AVP2WIPCONTROL].[dbo].[V_StockMetalByPart] WHERE [Factory_Part] = @factory
-           ORDER BY PartNo`
+          `SELECT s.PartNo,s.Factory_Part,s.Total_Box,s.Total_Qty as Store_Qty,s.Total_Qty - ISNULL(r._SUM,0) as Total_Qty,ISNULL(r._SUM,0) as REQ_QTY FROM [SRRYAPP02].[DB_AVP2WIPCONTROL].[dbo].[V_StockMetalByPart] s
+            LEFT JOIN (SELECT m.PART_NO,SUM(m.QTY) as _SUM FROM (
+			      SELECT distinct rd.PART_NO,rd.QTY FROM [dbo].[TBL_METAL_REQDTL] rd
+            LEFT JOIN TBL_METAL_REQ r ON rd.REQ_NO  = r.REQ_NO 
+            WHERE r.STATUS NOT IN ('3','4') ) m GROUP BY m.PART_NO) r ON s.PartNo COLLATE Thai_CI_AI = r.PART_NO COLLATE Thai_CI_AI
+            WHERE s.[Factory_Part] = @factory ORDER BY s.PartNo`
         );
       if (results && results?.recordset?.length > 0) {
         return res.json({

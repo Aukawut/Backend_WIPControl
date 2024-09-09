@@ -215,7 +215,43 @@ class ProductionController {
       });
     }
   }
+  async GetProdPlanByFactory(req, res) {
+    const { start, end, factory } = req.params;
+    try {
+      const pool = await new sql.ConnectionPool(sqlConfig).connect();
+      const results = await pool
+        .request()
 
+        .input("factory", sql.NVarChar, factory)
+        .query(
+          `SELECT p.*, 
+       u.UHR_FullName_th AS FNAME_CREATED, 
+       ur.UHR_FullName_th AS FNAME_UPDATED FROM TBL_MOLDING_PLAN p LEFT JOIN V_AllUsers u ON p.CREATED_BY = u.UHR_EmpCode
+      LEFT JOIN V_AllUsers ur ON p.UPDATED_BY = ur.UHR_EmpCode WHERE FACTORY = @factory AND PLAN_DATE BETWEEN '${start}' AND '${end}' 
+      ORDER BY PLAN_DATE DESC`
+        );
+      if (results && results?.recordset?.length > 0) {
+        pool.close();
+        return res.json({
+          err: false,
+          results: results?.recordset,
+          status: "Ok",
+        });
+      } else {
+        pool.close();
+        return res.json({
+          err: true,
+          results: [],
+        });
+      }
+    } catch (err) {
+      console.log(err);
+      return res.json({
+        err: true,
+        msg: err.message,
+      });
+    }
+  }
   async SaveProductionPlan(req, res) {
 
     try {
@@ -370,6 +406,40 @@ class ProductionController {
       });
     }
   }
+  async GetWeeklyPlan(req, res) {
+    const { start, end, factory } = req.params;
+    try {
+      const pool = await new sql.ConnectionPool(sqlConfig).connect();
+      const results = await pool
+        .request()
+
+        .input("factory", sql.NVarChar, factory)
+        .query(
+          `EXEC GetMoldingPlanData '${start}', '${end}', '${factory}'`
+        );
+      if (results && results?.recordset?.length > 0) {
+        pool.close();
+        return res.json({
+          err: false,
+          results: results?.recordset,
+          status: "Ok",
+        });
+      } else {
+        pool.close();
+        return res.json({
+          err: true,
+          results: [],
+        });
+      }
+    } catch (err) {
+      console.log(err);
+      return res.json({
+        err: true,
+        msg: err.message,
+      });
+    }
+  }
+
 }
 
 module.exports = ProductionController;
