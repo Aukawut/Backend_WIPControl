@@ -65,6 +65,9 @@ const PlanController = require("./controller/PlanController");
 const AuthController = require("./controller/AuthController");
 const AdhesiveController = require("./controller/AdhesiveController");
 const ProductionController = require("./controller/ProductionController");
+const LotController = require("./controller/LotController");
+const MachineController = require("./controller/MachineController");
+const PartController = require("./controller/PartController");
 
 //<----- Instance ----->
 const stock = new StockController();
@@ -73,6 +76,9 @@ const plan = new PlanController();
 const auth = new AuthController();
 const adhesive = new AdhesiveController();
 const prodution = new ProductionController() ;
+const lotControl = new LotController() ;
+const mc = new MachineController() ;
+const part = new PartController() ;
 
 const PORT = process.env.PORT;
 
@@ -87,7 +93,7 @@ app.use("/private", express.static("private"));
 app.get("/stock/all", stock.GetAllStock);
 app.get("/stock/bypart", stock.GetAllStockByPart);
 app.get("/stock/byFactory/:factory", stock.GetStockByFactory);
-app.get("/stock/lot/aboutexpire", stock.GetLotAboutToExpire);
+app.get("/stock/lot/aboutexpire/:day", stock.GetLotAboutToExpire);
 
 //<------- WIP --------->
 app.get("/wip/all", wip.GetAllProdWip);
@@ -123,6 +129,24 @@ app.get("/production/avp/:start/:end/:factory",prodution.GetProdPlanByFactory);
 app.get("/production/weekly/:start/:end/:factory",prodution.GetWeeklyPlan);
 
  
+// <--------- Lot Controller -------->
+app.post("/lotcontrol/add",lotControl.SaveLot)
+app.get("/lotcontrol/transection/:page/:limit",lotControl.GetLotControlTrans);
+app.get("/lotcontrol/transection/find/part/:partNo",lotControl.GetLotControlTransByPart);
+app.get("/lotcontrol/transection/date/:start/:end",lotControl.GetLotControlTransByDate);
+app.get("/lotcontrol/find/:lotNo",lotControl.GetDetailByLotNo);
+app.get("/lotcontrol/part/:lotNo",lotControl.GetPartDetailByLotNo);
+app.get("/lotcontrol/trans/runningNo",lotControl.GetRunningNo);
+app.get("/lotcontrol/lot/runningNo/:lotStr",lotControl.GetRunningLotNo);
+app.get('/lotcontrol/tags/trans/:start/:end',lotControl.GetTagLotControlByDate)
+
+//<------ Machine Controller --------->
+app.get("/machine",mc.GetMachine)
+app.get("/machine/:name",mc.GetMachineNoByName)
+
+// <------ Part Controller -------->
+app.get("/parts",part.GetPartMaster);
+
 //<------- Auth --------->
 app.post("/login/domain",auth.DomainLogin);
 app.get("/auth/token/approve/metal/:reqNo",auth.AuthApproveReqMetal);
