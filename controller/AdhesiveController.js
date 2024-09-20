@@ -1,5 +1,5 @@
 const sql = require("mssql");
-const { sqlConfig } = require("../config/config");
+const { sqlConfig,sqlConfigApp02 } = require("../config/config");
 const moment = require("moment");
 const Utils = require("../utils/Utils");
 
@@ -487,6 +487,291 @@ class AdhesiveController {
         return res.json({
           err: true,
           msg: "Something went wrong!",
+        });
+      }
+    } catch (err) {
+      console.log(err);
+      return res.json({
+        err: true,
+        msg: err.message,
+      });
+    }
+  }
+  async GetRunningNumber(req, res) {
+    try {
+      const prefix = "RQ"; //RQ1706300001
+      const dateNow = moment(new Date()).format("YYMMDD");
+
+      const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
+      const results = await pool
+        .request()
+        .query(
+          `SELECT TOP 1 tran_no from tbl_crequestsupply WHERE tran_no like '%${prefix}${dateNow}%' ORDER BY tran_no DESC`
+        );
+        console.log(results?.recordset);
+      if (results && results?.recordset?.length > 0) {
+        
+        const tran = results?.recordset[0].tran_no;
+        const lastNo = Number(tran.slice(-4)) + 1;
+        const format = await pool
+          .request()
+          .query(
+            `SELECT RIGHT('0000' + CAST(${lastNo} AS VARCHAR(4)), 4) AS PaddedNumber`
+          );
+        pool.close();
+        return res.json({
+          err: false,
+          msg: "Ok",
+          lastNo: `RQ${dateNow}${format.recordset[0].PaddedNumber}`,
+        });
+      } else {
+        pool.close();
+        return res.json({
+          err: false,
+          msg: "Ok",
+          lastNo: `RQ${dateNow}0001`,
+        });
+      }
+    } catch (err) {
+      console.log(err);
+      return res.json({
+        err: true,
+        msg: err.message,
+      });
+    }
+  }
+
+  async GetRollerByPart(req, res) {
+    try {
+      const {partNo} = req.params ;
+     
+      const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
+      const results = await pool
+        .request()
+        .input("partNo",sql.NVarChar,partNo)
+        .query(
+         `SELECT roller_no,roller_detail,partno,sum(qty_box) as sumqty  ,count(tagno) as count_tag 
+          FROM tbl_cstockdetail WHERE partno = @partNo
+          AND status='USE'
+          AND status_supply='N'
+          AND status_active = 'FG'
+          GROUP BY roller_no,roller_detail,partno
+          ORDER BY roller_no,roller_detail,partno`
+        );
+
+      if (results && results?.recordset?.length > 0) {
+        pool.close();
+        return res.json({
+          err: false,
+          status: "Ok",
+          results:results.recordset,
+        });
+      } else {
+        pool.close();
+        return res.json({
+          err: false,
+          msg:"Not Found",
+          results: [],
+        });
+      }
+    } catch (err) {
+      console.log(err);
+      return res.json({
+        err: true,
+        msg: err.message,
+      });
+    }
+  }
+
+  async CheckBoxNotFull(req, res) {
+    try {
+      const { partNo,qty } = req.params ;
+      const now  = moment(new Date()).format("YYYY-MM-DD");
+      const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
+      const results = await pool
+        .request()
+        .input("partNo",sql.NVarChar,partNo)
+        .input("qty",sql.NVarChar,qty)
+        .query(
+         `SELECT qty_box FROM tbl_cstockdetail a 
+          left join [dbo].[V_AdhesiveLotControl] b ON a.partno = b.[Part_No]
+          AND a.lot_no = b.[Lot_No] WHERE partno = @partNo and qty_box = @qty AND
+          a.status = 'USE' AND a.status_supply = 'N' AND a.status_active = 'FG'  and 
+          b.[QA_DateExpire] >= '${now}'`
+        );
+
+      if (results && results?.recordset?.length > 0) {
+        pool.close();
+        return res.json({
+          err: false,
+          status: "Ok",
+          results:results.recordset,
+        });
+      } else {
+        pool.close();
+        return res.json({
+          err: true,
+          msg:"Box Not Found",
+          results: [],
+        });
+      }
+    } catch (err) {
+      console.log(err);
+      return res.json({
+        err: true,
+        msg: err.message,
+      });
+    }
+  }
+
+  async SearchLotForRequest(req, res) {
+    try {
+      const now  = moment(new Date()).format("YYYY-MM-DD");
+      const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
+      const results = await pool
+        .request()
+        .query(
+         `SELECT distinct  a.Tran_No as Transaction_No,a.Lot_no as Lot_No,a.partno as Part_NO,a.mach_name as MachineName,substring(a.lot_no,6,9) as lot_sup,sum(a.qty_box) as sumqty 
+          FROM  tbl_cstockdetail a LEFT JOIN [dbo].[V_AdhesiveLotControl] b ON a.partno = b.[Part_No]
+          AND a.Lot_no = b.[Lot_No]
+          WHERE  a.status like '%USE%'
+          AND a.status_supply not like'%Y%'
+          AND a.status_active = 'FG'
+          AND b.[QA_DateExpire] >= '${now}'
+          GROUP BY  a.Tran_No ,a.Lot_no,a.partno,a.mach_name
+          ORDER BY a.partno,substring(a.lot_no,6,9)`
+        );
+
+      if (results && results?.recordset?.length > 0) {
+        pool.close();
+        return res.json({
+          err: false,
+          status: "Ok",
+          results:results.recordset,
+        });
+      } else {
+        pool.close();
+        return res.json({
+          err: true,
+          msg:"Lot Not Found",
+          results: [],
+        });
+      }
+    } catch (err) {
+      console.log(err);
+      return res.json({
+        err: true,
+        msg: err.message,
+      });
+    }
+  }
+
+  async SearchLotForRequestByPart(req, res) {
+    try {
+      const now  = moment(new Date()).format("YYYY-MM-DD");
+      const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
+      const results = await pool
+        .request()
+        .query(
+         `SELECT distinct  a.Tran_No as Transaction_No,a.Lot_no as Lot_No,a.partno as Part_NO,a.mach_name as MachineName,substring(a.lot_no,6,9) as lot_sup,sum(a.qty_box) as sumqty 
+          FROM  tbl_cstockdetail a LEFT JOIN [dbo].[V_AdhesiveLotControl] b ON a.partno = b.[Part_No]
+          AND a.Lot_no = b.[Lot_No]
+          WHERE  a.status like '%USE%'
+          AND a.status_supply not like'%Y%'
+          AND a.status_active = 'FG'
+          AND b.[QA_DateExpire] >= '${now}'
+          GROUP BY  a.Tran_No ,a.Lot_no,a.partno,a.mach_name
+          ORDER BY a.partno,substring(a.lot_no,6,9)`
+        );
+
+      if (results && results?.recordset?.length > 0) {
+        pool.close();
+        return res.json({
+          err: false,
+          status: "Ok",
+          results:results.recordset,
+        });
+      } else {
+        pool.close();
+        return res.json({
+          err: true,
+          msg:"Lot Not Found",
+          results: [],
+        });
+      }
+    } catch (err) {
+      console.log(err);
+      return res.json({
+        err: true,
+        msg: err.message,
+      });
+    }
+  }
+
+  async SearchRollerDetailByPart(req, res) {
+    try {
+      const now  = moment(new Date()).format("YYYY-MM-DD");
+      const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
+      const results = await pool
+        .request()
+        .query(
+         `select distinct S.lot_no ,S.date_lot,convert(int,SUBSTRING(S.lot_no, 6, 9))  as lot_sort , L.create_date ,sum(s.qty_box) as sumamount   
+          from  tbl_cstockdetail S,tbl_clotcontrolhd L,[dbo].[V_AdhesiveLotControl] V
+          where  S.lot_no=L.lot_no
+          and S.partno=L.partno
+          and  S.partno='1G0563-12' and S.lot_no=V.[Lot_No]
+          and S.partno=V.[Part_No] and
+          S.status='USE' and
+          S.status_supply='N'
+          and S.status_active='FG' and V.[QA_DateExpire] >= '${now}'
+          group by S.lot_no ,S.date_lot,L.create_date
+          order by S.date_lot,L.create_date,lot_sort`
+        );
+      
+        let qtys = 0 ;
+        let sumqty = 0;
+      let lottotal = "";
+      let cQtyRoller = "";
+        if (results && results?.recordset?.length > 0) {
+        for(let i = 0 ; i < results?.recordset?.length ; i ++){
+          let lot = results?.recordset[i].lot_no ;
+          let roller = results?.recordset[i].roller_no ;
+
+          let datetime = moment(results?.recordset[i].create_date).format('lll');
+          qtys = Number(results?.recordset[i].sumamount );
+          sumqty += qtys
+          lottotal += "," + lot + "("+datetime+")";
+         
+          const stmt = `select distinct S.lot_no , S.roller_no,sum(s.qty_box) as suma  from  tbl_cstockdetail S
+            where S.lot_no='${lot}'
+            and S.status='USE'
+            and S.status_supply='N'
+            and S.status_active = 'FG'
+            group by S.lot_no ,S.roller_no
+`
+          const res = await pool.request().query(stmt);
+          cQtyRoller = "," + roller + "(" + res.recordset[0].suma + ")"
+          console.log(res.recordset);
+          
+
+        }
+        console.log(sumqty);
+        console.log(lottotal);
+        console.log(cQtyRoller);
+        
+
+        pool.close();
+        return res.json({
+          err: false,
+          status: "Ok",
+          results:results.recordset,
+        });
+      } else {
+        pool.close();
+        return res.json({
+          err: true,
+          msg:"Lot Not Found",
+          results: [],
         });
       }
     } catch (err) {

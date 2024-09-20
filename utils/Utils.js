@@ -1,7 +1,11 @@
 const sql = require("mssql");
 const jwt = require("jsonwebtoken");
-const { sqlConfig } = require("../config/config");
+const { sqlConfig ,sqlConfigApp02} = require("../config/config");
 const nodemailer = require("nodemailer");
+const moment = require("moment");
+const QRCode = require('qrcode');
+
+
 require("dotenv").config();
 
 class Utils {
@@ -87,7 +91,7 @@ class Utils {
       const results = await pool
         .request()
         .input("username", sql.NVarChar, username)
-        .query(`SELECT us.EMP_CODE,us.ROLE,f.Id as Id_Factory,f.FACTORY_NAME,r.NAME_ROLE,u.UHR_FirstName_en,u.UHR_EmpCode,u.UHR_LastName_en,u.UHR_Department,u.AD_Mail,u.AD_UserLogon FROM TBL_USERS us 
+        .query(`SELECT us.EMP_CODE,us.ROLE,f.Id as Id_Factory,f.FACTORY_NAME,r.NAME_ROLE, u.UHR_FirstName_en,u.UHR_EmpCode,u.UHR_LastName_en,u.UHR_Department,u.UHR_FullName_en,u.AD_Mail,u.AD_UserLogon FROM TBL_USERS us 
                 LEFT JOIN V_AllUsers u ON us.EMP_CODE = u.UHR_EmpCode
                 LEFT JOIN TBL_USERS um ON u.UHR_EmpCode = um.EMP_CODE
                 LEFT JOIN TBL_ROLE r ON us.ROLE = r.Id
@@ -102,6 +106,8 @@ class Utils {
           lastName: results.recordset[0].UHR_LastName_en,
           role: results.recordset[0].NAME_ROLE,
           factory: results.recordset[0].FACTORY_NAME,
+          fullName:results.recordset[0].UHR_FullName_en
+
         };
 
         return { err: false, payload: payload };
@@ -156,7 +162,8 @@ class Utils {
         .input("pack", sql.Int, Number(results?.recordset[0].C_PACK) + 1)
         .input("qty", sql.Int, Number(results?.recordset[0].C_QTY) + 1)
         .query(stmt);
-
+        console.log(stmt);
+        
       if (update && update?.rowsAffected[0] > 0) {
         pool.close();
         return { err: false, msg: "Logs changed successfully" };
@@ -372,6 +379,98 @@ IT Developer - Thank you 😊`;
       return { err: true, msg: err.message };
     }
   }
+  
+  async SaveTagsNewLot(tags,tranNo,tranDate,lotNo,boxTotal,createBy) {
+    try {
+      // tags == Array
+
+      const pool = await new sql.ConnectionPool(sqlConfig).connect();
+      let inserted = 0;
+    //  const dateNow = moment(new Date()).utc().format("YYYY-MM-DD HH:MM");
+
+      // <--- Start Loop -->
+      for (let i = 0; i < tags?.length; i++) {
+        const itemLot = tags[i].tagNo;
+
+        const stmtInsert = await pool
+          .request()
+          .input("tran_no", sql.NVarChar, tranNo)
+          .input("tran_date", sql.DateTime, tranDate)
+          .input("lot_no", sql.NVarChar, lotNo)
+          .input("partNo", sql.NVarChar, tags[i].partNo)
+          .input("tagNo", sql.NVarChar, tags[i].tagNo)
+          .input("itemtag", sql.Float, Number(itemLot.split("|")[2])) // 1A-0636-11|TS01-240913001|009|20 -> 9
+          .input("qty_box", sql.Float, tags[i].qtyBox)
+          .input("box_total", sql.Float, boxTotal)
+          .input("status", sql.NVarChar, "USE")
+          .input("create_by", sql.NVarChar, createBy)
+          .input("tag_qrcode",sql.Image,await QRCode.toBuffer(tags[i].tagNo, { type: "png" }))
+          .input("status_rev_tag",sql.NVarChar,"N")
+          .query(`INSERT INTO [SRRYAPP02].[DB_AVP2WIPCONTROL].[dbo].[tbl_clotcontroldt]
+        (tran_no,tran_date,lot_no,partno,tagno,itemtag,qty_box,box_total,status,create_by,create_date,tag_qrcode,status_rev_tag)
+        VALUES (@tran_no,@tran_date,@lot_no,@partno,@tagno,@itemtag,@qty_box,@box_total,@status,@create_by,GETDATE(),@tag_qrcode,@status_rev_tag)
+        `);
+
+        if (stmtInsert && stmtInsert.rowsAffected[0] > 0) {
+          // กรณีสำเร็จ inserted + 1;
+          inserted++;
+        }
+      }
+     
+      // <--- End Loop -->
+
+
+      if (inserted == tags?.length) {
+        return { err: false, msg: "save tag!", status: "Ok" };
+      }
+    } catch (err) {
+      console.log(err);
+      return { err: true, msg: err, status: "Bad" };
+    }
+  }
+
+  async GetTransectionStockDt(req, res) {
+    try {
+      const prefix = "S";
+      const dateNow = moment(new Date()).format("YYYYMMDD");
+
+      const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
+      const results = await pool
+        .request()
+        .query(
+          `SELECT TOP 1 tran_no from tbl_cstockdetail WHERE tran_no LIKE '%${prefix}${dateNow}%' ORDER BY tran_no DESC`
+        );
+      if (results && results?.recordset?.length > 0) {
+        const tran = results?.recordset[0].tran_no;
+        const lastNo = Number(tran.slice(-5)) + 1;
+        const format = await pool
+          .request()
+          .query(
+            `SELECT RIGHT('00000' + CAST(${lastNo} AS VARCHAR(5)), 5) AS PaddedNumber`
+          );
+        pool.close();
+        return {
+          err: false,
+          msg: "Ok",
+          lastNo: `${prefix}${dateNow}${format.recordset[0].PaddedNumber}`,
+        }
+      } else {
+        pool.close();
+        return {
+          err: false,
+          msg: "Ok",
+          lastNo: `${prefix}${dateNow}00001`,
+        };
+      }
+    } catch (err) {
+      console.log(err);
+      return  {
+        err: true,
+        msg: err.message,
+      };
+    }
+  }
+
 }
 
 module.exports = Utils;

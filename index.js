@@ -68,6 +68,10 @@ const ProductionController = require("./controller/ProductionController");
 const LotController = require("./controller/LotController");
 const MachineController = require("./controller/MachineController");
 const PartController = require("./controller/PartController");
+const ReceiveController = require("./controller/ReceiveController");
+const RollerController = require("./controller/RollerController");
+const SummaryController = require("./controller/SummaryController");
+const BomController = require("./controller/BomController");
 
 //<----- Instance ----->
 const stock = new StockController();
@@ -79,6 +83,10 @@ const prodution = new ProductionController() ;
 const lotControl = new LotController() ;
 const mc = new MachineController() ;
 const part = new PartController() ;
+const receive = new ReceiveController() ;
+const roller = new RollerController() ;
+const summary = new SummaryController() ;
+const bom = new BomController() ;
 
 const PORT = process.env.PORT;
 
@@ -116,6 +124,12 @@ app.get("/request/metal/:factory",adhesive.GetMetalRequestByFactory);
 app.get("/request/metal/detail/:reqNo",adhesive.GetRequestDetailByReq);
 app.put("/request/cancel/:reqNo",adhesive.CancelRequestMetal)
 app.put("/request/metal/approve/:reqNo",adhesive.ApproveRequestMetal)
+app.get("/adhesive/request/running",adhesive.GetRunningNumber)
+app.get('/stock/adhesive/roller/:partNo',adhesive.GetRollerByPart);
+app.get("/adhesive/check/boxNotFull/:partNo/:qty",adhesive.CheckBoxNotFull)
+app.get("/adhesive/lot/forRequest",adhesive.SearchLotForRequest)
+app.get("/adhesive/lot/forRequest/:partNo",adhesive.SearchLotForRequestByPart)
+app.get("/adhesive/rollerDetail",adhesive.SearchRollerDetailByPart)
 
 //<------ Production ------>
 app.get("/production/transfer/:start/:end",prodution.GetProdTrnByDate);
@@ -127,6 +141,7 @@ app.get("/production/closed/:factory/:start/:end",prodution.GetProdClosedByFacto
 app.get("/production/plan/:factory/:start/:end",prodution.GetProdPlanFactory);
 app.get("/production/avp/:start/:end/:factory",prodution.GetProdPlanByFactory);
 app.get("/production/weekly/:start/:end/:factory",prodution.GetWeeklyPlan);
+app.put("production/plan/update/:id",prodution.UpdatePlan);
 
  
 // <--------- Lot Controller -------->
@@ -139,6 +154,12 @@ app.get("/lotcontrol/part/:lotNo",lotControl.GetPartDetailByLotNo);
 app.get("/lotcontrol/trans/runningNo",lotControl.GetRunningNo);
 app.get("/lotcontrol/lot/runningNo/:lotStr",lotControl.GetRunningLotNo);
 app.get('/lotcontrol/tags/trans/:start/:end',lotControl.GetTagLotControlByDate)
+app.get("/lotcontrol/notexpire",lotControl.GetAllLotControlNotExpire)
+app.get("/lotcontrol/noExpire/waitReceive",lotControl.GetAllLotControlWaitReceive)
+app.get("/lotcontrol/tags/:lotNo",lotControl.GetTagLotControlByLot)
+app.get("/tag/detail/:lotNo",lotControl.SearchTagByLot)
+app.put("/lotcontrol/cancel/:lotNo",lotControl.CancelLot)
+
 
 //<------ Machine Controller --------->
 app.get("/machine",mc.GetMachine)
@@ -146,6 +167,34 @@ app.get("/machine/:name",mc.GetMachineNoByName)
 
 // <------ Part Controller -------->
 app.get("/parts",part.GetPartMaster);
+app.get("/partsFG",part.GetFGPartMaster);
+app.get("/part/:partNo",part.GetPartByPartNo);
+app.post("/download/fg/part",part.DownloadFGPartFromIM);
+
+//<-------- Receive Controller ---------->
+app.get("/runningNo/receive",receive.GetRunningNumber)
+app.get("/receive/:start/:end",receive.GetReceiveByTransDate);
+app.get("/receive/tran/part/:partNo",receive.GetReceiveByPart);
+app.get("/receive/tran/detail/:tranNo",receive.GetReceiveDetailByTranNo);
+app.post("/receive",receive.ReceiveMetal)
+
+// <------- Roller Controller -------->
+app.get("/roller",roller.GetAllRoller);
+
+
+//<-------- Sammary Report ------->
+app.get("/production/report/:factory/:start/:end",summary.GetProdcutionTrans);
+app.get("/summary/report/:factory/:start/:end",summary.GetActualReportByFactory);
+app.get("/summary/actual/:factory/:start/:end",summary.SummaryActualPlanByFactory);
+app.get("/count/plan/:factory/:start/:end",summary.CountPlanByDate);
+app.get("/count/actual/:factory/:start/:end",summary.CountProductionActualByDate);
+app.get("/count/diff/:factory/:start/:end",summary.CountProductionPlanDiffByDate);
+app.get("/count/ng/:factory/:start/:end",summary.CountProductionPlanNgByDate);
+app.get("/metal/used/:factory/:start/:end",summary.SummaryRMUsed);
+
+//<------ BomController ------>
+app.get("/bom",bom.GetAllBom);
+app.get("/bom/partMaster",bom.GetPartBomMaster);
 
 //<------- Auth --------->
 app.post("/login/domain",auth.DomainLogin);

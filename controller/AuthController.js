@@ -98,6 +98,7 @@ class AuthController {
                         role: UHR_Details.payload.role,
                         empCode: UHR_Details.payload.emp_code,
                         factory: UHR_Details.payload.factory,
+                        fullName:UHR_Details.payload.fullName
                       });
                     } else {
                       let newArray = [];
@@ -137,6 +138,7 @@ class AuthController {
                         role: UHR_Details.payload.role,
                         empCode: UHR_Details.payload.emp_code,
                         factory: UHR_Details.payload.factory,
+                        fullName:UHR_Details.payload.fullName
                       });
                     }
                   } else {

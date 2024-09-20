@@ -1,12 +1,12 @@
 const sql = require("mssql");
 
-const { sqlConfig } = require("../config/config");
+const { sqlConfig,sqlConfigApp02 } = require("../config/config");
 const moment = require("moment");
 
 class StockController {
   async GetAllStock(req, res) {
     try {
-      const pool = await new sql.ConnectionPool(sqlConfig).connect();
+      const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
       const results = await pool
         .request()
         .query(
@@ -37,11 +37,11 @@ class StockController {
 
   async GetAllStockByPart(req, res) {
     try {
-      const pool = await new sql.ConnectionPool(sqlConfig).connect();
+      const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
       const results = await pool
         .request()
         .query(
-          `SELECT * FROM [SRRYAPP02].[DB_AVP2WIPCONTROL].[dbo].[V_StockMetalByPart] ORDER BY PartNo`
+          `SELECT * FROM [dbo].[V_StockMetalByPart] ORDER BY PartNo`
         );
       if (results && results?.recordset?.length > 0) {
         return res.json({
@@ -103,10 +103,10 @@ class StockController {
     const formatDate = moment(new Date()).add(Number(day), "days").format("YYYY-MM-DD"); // 2 วันก่อนหมด
 
     try {
-      const pool = await new sql.ConnectionPool(sqlConfig).connect();
+      const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
       const results = await pool.request()
-        .query(`SELECT DISTINCT a.Lot_No as lot_no,a.Part_No,a.Machine_No,a.[Status],a.create_date,a.TimeOnly,a.DateOnly,a.PDLotDate,a.QA_DateExpire,b.roller_no FROM [SRRYAPP02].[DB_AVP2WIPCONTROL].[dbo].[tbl_cstockdetail] b 
-          LEFT JOIN [SRRYAPP02].[DB_AVP2WIPCONTROL].[dbo].[V_AdhesiveLotControl] a ON a.Lot_No = b.lot_no AND a.Part_No = b.partno
+        .query(`SELECT DISTINCT a.Lot_No as lot_no,a.Part_No,a.Machine_No,a.[Status],a.create_date,a.TimeOnly,a.DateOnly,a.PDLotDate,a.QA_DateExpire,b.roller_no FROM [dbo].[tbl_cstockdetail] b 
+          LEFT JOIN [dbo].[V_AdhesiveLotControl] a ON a.Lot_No = b.lot_no AND a.Part_No = b.partno
           WHERE a.QA_DateExpire <= '${formatDate}' AND b.status_supply = 'N'
           AND status_active <> 'NG' AND b.status = 'USE' ORDER BY a.Lot_No`);
       if (results && results?.recordset?.length > 0) {
