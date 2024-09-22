@@ -395,5 +395,40 @@ SELECT
             })
         }
     }
+
+    async SummaryProductionNgPart(req,res) {
+        const {top,start,end,factory} = req.params ;
+        
+        try{
+        const pool = await new sql.ConnectionPool(sqlConfig).connect();
+        const results = await pool
+        .request()
+        .input("factory",sql.NVarChar,factory)
+        .query(`SELECT TOP ${top} SUM(NG_QTY) as SUM_NG,PART_NO  FROM [dbo].[TBL_NG_RECORD] 
+                WHERE [PLAN_DATE] BETWEEN '${start}' AND '${end}' AND FACTORY = @factory
+                GROUP BY PART_NO ORDER BY SUM_NG DESC`)
+        if (results && results.recordset?.length > 0) {
+        pool.close()
+          return res.json({
+            err: false,
+            results: results.recordset,
+            status: "Ok",
+          });
+        } else {
+        pool.close()
+          return res.json({
+            err: true,
+            results: [],
+            msg: "Not Found",
+          });
+        }
+    }catch(err){
+            console.log(err);
+            return res.json({
+                err:true,
+                msg:err.message
+            })
+        }
+    }
 }
 module.exports = SummaryController

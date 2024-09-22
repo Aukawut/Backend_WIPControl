@@ -72,6 +72,8 @@ const ReceiveController = require("./controller/ReceiveController");
 const RollerController = require("./controller/RollerController");
 const SummaryController = require("./controller/SummaryController");
 const BomController = require("./controller/BomController");
+const PackController = require("./controller/PackController");
+const CustomerController = require("./controller/CustomerController");
 
 //<----- Instance ----->
 const stock = new StockController();
@@ -87,6 +89,8 @@ const receive = new ReceiveController() ;
 const roller = new RollerController() ;
 const summary = new SummaryController() ;
 const bom = new BomController() ;
+const pack = new PackController();
+const customer = new CustomerController();
 
 const PORT = process.env.PORT;
 
@@ -141,8 +145,10 @@ app.get("/production/closed/:factory/:start/:end",prodution.GetProdClosedByFacto
 app.get("/production/plan/:factory/:start/:end",prodution.GetProdPlanFactory);
 app.get("/production/avp/:start/:end/:factory",prodution.GetProdPlanByFactory);
 app.get("/production/weekly/:start/:end/:factory",prodution.GetWeeklyPlan);
-app.put("production/plan/update/:id",prodution.UpdatePlan);
-
+app.get("/production/metal/used/:factory/:start/:end",prodution.GetMetalLogUsed);
+app.put("/production/update/plan/:id",prodution.UpdatePlan);
+app.post("/production/add/plan",prodution.AddPlan)
+app.delete("/production/delete/plan/:id",prodution.DeletePlan)
  
 // <--------- Lot Controller -------->
 app.post("/lotcontrol/add",lotControl.SaveLot)
@@ -162,6 +168,7 @@ app.put("/lotcontrol/cancel/:lotNo",lotControl.CancelLot)
 
 
 //<------ Machine Controller --------->
+app.get("/machineMaster",mc.GetMachineMaster)
 app.get("/machine",mc.GetMachine)
 app.get("/machine/:name",mc.GetMachineNoByName)
 
@@ -181,6 +188,12 @@ app.post("/receive",receive.ReceiveMetal)
 // <------- Roller Controller -------->
 app.get("/roller",roller.GetAllRoller);
 
+//<------- Pack Controller -------->
+app.get("/pack",pack.GetPack);
+
+// <------ Customer ------>
+app.get("/customer",customer.GetCustommer)
+
 
 //<-------- Sammary Report ------->
 app.get("/production/report/:factory/:start/:end",summary.GetProdcutionTrans);
@@ -191,6 +204,7 @@ app.get("/count/actual/:factory/:start/:end",summary.CountProductionActualByDate
 app.get("/count/diff/:factory/:start/:end",summary.CountProductionPlanDiffByDate);
 app.get("/count/ng/:factory/:start/:end",summary.CountProductionPlanNgByDate);
 app.get("/metal/used/:factory/:start/:end",summary.SummaryRMUsed);
+app.get("/part/notgood/:factory/:start/:end/:top",summary.SummaryProductionNgPart);
 
 //<------ BomController ------>
 app.get("/bom",bom.GetAllBom);

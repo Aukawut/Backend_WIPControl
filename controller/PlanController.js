@@ -46,8 +46,7 @@ class PlanController {
         .query(
           `SELECT * FROM [dbo].[TBL_ADHESIVE_PLAN] WHERE [DATE_PLATE] BETWEEN @start AND @end ORDER BY DATE_PLATE DESC`
         );
-      
-        
+
       if (results && results?.recordset?.length > 0) {
         pool.close();
         return res.json({

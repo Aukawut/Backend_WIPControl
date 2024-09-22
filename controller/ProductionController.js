@@ -1,5 +1,5 @@
 const sql = require("mssql");
-const { sqlConfig } = require("../config/config");
+const { sqlConfig, sqlConfigApp09 } = require("../config/config");
 const Utils = require("../utils/Utils");
 const fs = require("fs");
 
@@ -472,26 +472,166 @@ class ProductionController {
       });
     }
   }
-  async UpdatePlan(req, res) {
-    const { id } = req.params; // API Params :id
-    const { partNo, customer, compound, pack, code,qty,planDate,mc,mcGroup } = req.body;
+
+  async AddPlan(req, res) {
+    const {
+      partNo,
+      customer,
+      compound,
+      pack,
+      qty,
+      planDate,
+      mc,
+      mcGroup,
+      fullName,
+      factory,
+    } = req.body;
+
+    const pool = await new sql.ConnectionPool(sqlConfig).connect(); // เปิด Connection
 
     // ถ้าไม่ได้มีการส่ง Json มา
-    if (!partNo || !customer || !compound || !pack || !code) {
+    if (!partNo || !customer || !pack || !mc || !mcGroup || !fullName) {
       return res.json({
         err: true,
         msg: "Data is required!",
       });
     }
-    // Init Count Logs Data Change
-    let mcChange = 0;
-    let mcGroupChange = 0;
-    let mcPartNo = 0;
-    let mcCustomer = 0;
-    let mcCompound = 0;
-    let mcPack = 0;
-    let mcQty = 0;
+
+    const resultLastId = await pool
+      .request()
+      .query(`SELECT TOP 1 * FROM [dbo].[TBL_MOLDING_PLAN] ORDER BY Id DESC`);
+    const lastId =
+      resultLastId.recordset.length > 0 ? resultLastId.recordset[0].Id + 1 : 1;
+
+    try {
+      const insertPlan = await pool
+        .request()
+        .input("id", sql.Int, lastId)
+        .input("mc", sql.NVarChar, mc)
+        .input("mcGroup", sql.NVarChar, mcGroup)
+        .input("partNo", sql.NVarChar, partNo)
+        .input("customer", sql.NVarChar, customer)
+        .input("compound", sql.NVarChar, compound)
+        .input("pack", sql.NVarChar, pack)
+        .input("factory", sql.NVarChar, factory)
+        .input("planDate", sql.DateTime, planDate)
+        .input("qty", sql.Int, qty)
+        .input("fullName", sql.NVarChar, fullName)
+        .query(
+          `INSERT INTO [dbo].[TBL_MOLDING_PLAN] (
+           [Id]
+          ,[MC]
+          ,[MC_GROUP]
+          ,[PART_NO]
+          ,[CUSTOMER_CODE]
+          ,[COMPOUND]
+          ,[PACK]
+          ,[FACTORY]
+          ,[PLAN_DATE]
+          ,[QTY]
+          ,[CREATED_AT]
+          ,[CREATED_BY]) VALUES (@id,@mc,@mcGroup,@partNo,@customer,@compound,@pack,@factory,@planDate,@qty,GETDATE(),@fullName)`
+        );
+
+      const insertLog = await pool.request().input("idPlan", sql.Int, lastId)
+        .query(`INSERT INTO [dbo].[TBL_PN_LOGCHANGE] ([Id_Plan],[C_MC],[C_MC_GROUP],[C_PART_NO],[C_CUSTOMER_CODE],[C_COMPOUND],[C_PACK],[C_QTY])
+          VALUES (@idPlan,0,0,0,0,0,0,0)`);
+          console.log(lastId);
+          
+      if (
+        insertPlan &&
+        insertPlan.rowsAffected[0] > 0 &&
+        insertLog &&
+        insertLog.rowsAffected[0] > 0
+      ) {
+        return res.json({
+          err: false,
+          msg: "Plan added successfully",
+          status: "Ok",
+        });
+      } else {
+        return res.json({
+          err: true,
+          msg: "Something is went wrong!",
+        });
+      }
+    } catch (err) {
+      console.log(err);
+      return res.json({
+        err: true,
+        msg: err.message,
+      });
+    }
+  }
+
+  async DeletePlan(req, res) {
+    const { id } = req.params;
+    console.log(id);
+    
+    const pool = await new sql.ConnectionPool(sqlConfig).connect(); // เปิด Connection
+
+    try {
+      const deletePlan = await pool
+        .request()
+        .input("id", sql.Int, id)
+        .query(`DELETE FROM [dbo].[TBL_MOLDING_PLAN] WHERE [Id] = @id`);
+
+      const deletePlanLog = await pool
+        .request()
+        .input("id", sql.Int, id)
+        .query(`DELETE FROM [dbo].[TBL_PN_LOGCHANGE] WHERE [Id_Plan] = @id`);
+        console.log(deletePlan);
+        console.log(deletePlanLog);
+      if (
+        deletePlan &&
+        deletePlan.rowsAffected[0] > 0
+      ) {
+     
+        
+        return res.json({
+          err: false,
+          msg: "Plan deleted",
+          status: "Ok",
+        });
+      } else {
+        return res.json({
+          err: true,
+          msg: "Something went wrong!",
+        });
+      }
+    } catch (err) {
+      console.log(err);
+      return res.json({
+        err: true,
+        msg: err.message,
+      });
+    }
+  }
+
+  async UpdatePlan(req, res) {
+    const { id } = req.params; // API Params :id
+    const {
+      partNo,
+      customer,
+      compound,
+      pack,
+      qty,
+      planDate,
+      mc,
+      mcGroup,
+      fullName,
+      factory,
+    } = req.body;
   
+    
+    // ถ้าไม่ได้มีการส่ง Json มา
+    if (!partNo || !customer  || !pack || !fullName || !factory) {
+      return res.json({
+        err: true,
+        msg: "Data is required!",
+      });
+    }
+   
 
     try {
       const pool = await new sql.ConnectionPool(sqlConfig).connect();
@@ -501,76 +641,88 @@ class ProductionController {
         .query(
           `SELECT * FROM [PRD_WIPCONTROL].[dbo].[TBL_MOLDING_PLAN] WHERE Id = @id`
         );
-        const logChange = await pool
+      const logChange = await pool
         .request()
         .input("id", sql.Int, id)
-        .query(
-          `SELECT * FROM [dbo].[TBL_PN_LOGCHANGE] WHERE [Id_Plan] = @id`
-        );
+        .query(`SELECT * FROM [dbo].[TBL_PN_LOGCHANGE] WHERE [Id_Plan] = @id`);
 
-        // Update Plan
+         // Init Count Logs Data Change
+    let mcChange = Number(logChange?.recordset[0].C_MC);
+    let mcGroupChange = Number(logChange?.recordset[0].C_MC_GROUP);
+    let mcPartNo = Number(logChange?.recordset[0].C_PART_NO);
+    let mcCustomer = Number(logChange?.recordset[0].C_CUSTOMER_CODE);
+    let mcCompound = Number(logChange?.recordset[0].C_COMPOUND);
+    let mcPack = Number(logChange?.recordset[0].C_PACK);
+    let mcQty = Number(logChange?.recordset[0].C_QTY);
+
+
+      // Update Plan
       if (results && results?.recordset?.length > 0) {
         const update = await pool
-        .request()
-        .input("qty",sql.Int,qty)
-        .input("planDate",sql.NVarChar,planDate)
-        .input("mc",sql.NVarChar,mc)
-        .input("mcGroup",sql.NVarChar,mcGroup)
-        .input("partNo",sql.NVarChar,partNo)
-        .input("customer",sql.NVarChar,customer)
-        .input("compound",sql.NVarChar,compound)
-        .input("code",sql.NVarChar,code)
-        .input("id",sql.Int,id)
-        .query(`UPDATE INTO [dbo].[TBL_MOLDING_PLAN] 
-            SET [QTY] = @qty,[PLAN_DATE] = @planDate,[MC] = @mc,[MC_GROUP] = @mcGroup,[PART_NO] = @partNo
-            [CUSTOMER_CODE] = @customer,[COMPOUND] @compound,[PACK] = @pack,[UPDATED_BY] = @code
+          .request()
+          .input("qty", sql.Int, qty)
+          .input("planDate", sql.NVarChar, planDate)
+          .input("mc", sql.NVarChar, mc)
+          .input("mcGroup", sql.NVarChar, mcGroup)
+          .input("partNo", sql.NVarChar, partNo)
+          .input("customer", sql.NVarChar, customer)
+          .input("compound", sql.NVarChar, compound)
+          .input("fullName", sql.NVarChar, fullName)
+          .input("pack", sql.NVarChar, pack)
+          .input("id", sql.Int, id).query(`UPDATE [dbo].[TBL_MOLDING_PLAN] 
+            SET [QTY] = @qty,[PLAN_DATE] = @planDate,[MC] = @mc,[MC_GROUP] = @mcGroup,[PART_NO] = @partNo,
+            [CUSTOMER_CODE] = @customer,[COMPOUND] = @compound,[PACK] = @pack,[UPDATED_BY] = @fullName
             ,UPDATED_AT = GETDATE() WHERE [Id] = @id`);
 
-          // จำนวนการเปลี่ยนแปลงเก่า + 1
-        if(Number(results?.recordset[0].QTY) !== Number(qty)) {
-          mcQty += Number(logChange?.recordset[0].C_QTY) + 1 ;
+        // จำนวนการเปลี่ยนแปลงเก่า + 1
+        if (Number(results?.recordset[0].QTY) !== Number(qty)) {
+          mcQty += 1;
         }
-        if(results?.recordset[0].MC !== mc) {
-          mcChange += Number(logChange?.recordset[0].C_MC) + 1 ;
+        if (results?.recordset[0].MC !== mc) {
+          mcChange += 1;
         }
-        if(results?.recordset[0].MC_GROUP !== mcGroup) {
-          mcGroupChange += Number(logChange?.recordset[0].C_MC_GROUP) + 1 ;
+        if (results?.recordset[0].MC_GROUP !== mcGroup) {
+          mcGroupChange += 1;
         }
-        if(results?.recordset[0].PACK !== pack) {
-          mcPack += Number(logChange?.recordset[0].C_PACK) + 1 ;
+        if (results?.recordset[0].PACK !== pack) {
+          mcPack += 1;
         }
-        if(results?.recordset[0].COMPOUND !== compound) {
-          mcCompound += Number(logChange?.recordset[0].C_COMPOUND) + 1 ;
+        if (results?.recordset[0].COMPOUND !== compound) {
+          mcCompound += 1;
         }
-        if(results?.recordset[0].CUSTOMER_CODE !== mcCustomer) {
-          mcCustomer += Number(logChange?.recordset[0].C_CUSTOMER_CODE) + 1 ;
+        if (results?.recordset[0].CUSTOMER_CODE !== customer) {
+         mcCustomer += 1;
         }
-        if(results?.recordset[0].PART_NO !== partNo) {
-          mcPartNo += Number(logChange?.recordset[0].C_PART_NO) + 1 ;
+        if (results?.recordset[0].PART_NO !== partNo) {
+          mcPartNo += 1;
         }
 
         // บันทึก Logs Change (Count Rev.)
         const updateLog = await pool
-        .request()
-        .input("cMC",sql.Int,mcChange)
-        .input("mcGroup",sql.Int,mcGroup)
-        .input("cPartNo",sql.Int,mcPartNo)
-        .input("cCustomer",sql.Int,mcCustomer)
-        .input("cCompound",sql.Int,mcCompound)
-        .input("cPack",sql.Int,mcPack)
-        .input("cQty",sql.Int,mcQty)
-        .input("id",sql.Int,id)
-        .query(`UPDATE [dbo].[TBL_PN_LOGCHANGE] 
+          .request()
+          .input("cMC", sql.Int, mcChange)
+          .input("mcGroup", sql.Int, mcGroupChange)
+          .input("cPartNo", sql.Int, mcPartNo)
+          .input("cCustomer", sql.Int, mcCustomer)
+          .input("cCompound", sql.Int, mcCompound)
+          .input("cPack", sql.Int, mcPack)
+          .input("cQty", sql.Int, mcQty)
+          .input("id", sql.Int, id).query(`UPDATE [dbo].[TBL_PN_LOGCHANGE] 
           SET [C_MC] = @cMC, [C_MC_GROUP] = @mcGroup ,[C_PART_NO] = @cPartNo,[C_CUSTOMER_CODE] = @cCustomer,
           [C_COMPOUND] = @cCompound,[C_PACK] = @cPack,[C_QTY] = @cQty
           WHERE [Id_Plan] = @id`);
 
-        if ((update && update.rowsAffected[0]  > 0 ) && (updateLog && updateLog?.rowsAffected[0] > 0)) {
+        if (
+          update &&
+          update.rowsAffected[0] > 0 &&
+          updateLog &&
+          updateLog?.rowsAffected[0] > 0
+        ) {
           return res.json({
-            err:false,
-            msg:"Plan updated"
-          })
-
+            err: false,
+            msg: "Plan updated",
+            status:"Ok"
+          });
         } else {
           pool.close();
           return res.json({
@@ -578,6 +730,39 @@ class ProductionController {
             msg: "Something is went wrong",
           });
         }
+      } else {
+        pool.close();
+        return res.json({
+          err: true,
+          results: [],
+        });
+      }
+    } catch (err) {
+      console.log(err);
+      return res.json({
+        err: true,
+        msg: err.message,
+      });
+    }
+  }
+
+  async GetMetalLogUsed(req, res) {
+    const { factory, start, end } = req.params;
+    try {
+      const pool = await new sql.ConnectionPool(sqlConfigApp09).connect();
+      const results = await pool
+        .request()
+        .input("factory", sql.NVarChar, factory)
+        .query(
+          `SELECT * FROM [V_METALAVP2_USED] WHERE FCTYCD =  @factory AND PdDate BETWEEN '${start}' AND '${end}' ORDER BY RM_PARTNO ASC`
+        );
+      if (results && results?.recordset?.length > 0) {
+        pool.close();
+        return res.json({
+          err: false,
+          results: results?.recordset,
+          status: "Ok",
+        });
       } else {
         pool.close();
         return res.json({
