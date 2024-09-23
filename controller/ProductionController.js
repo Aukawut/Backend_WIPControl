@@ -1,6 +1,7 @@
 const sql = require("mssql");
 const { sqlConfig, sqlConfigApp09 } = require("../config/config");
 const Utils = require("../utils/Utils");
+const moment = require("moment");
 const fs = require("fs");
 
 const utils = new Utils();
@@ -40,13 +41,13 @@ class ProductionController {
     const { tranNo, factory } = req.params;
 
     try {
-      const pool = await new sql.ConnectionPool(sqlConfig).connect();
+      const pool = await new sql.ConnectionPool(sqlConfigApp09).connect();
       const results = await pool
         .request()
         .input("tranNo", sql.NVarChar, tranNo)
         .input("factory", sql.NVarChar, factory)
         .query(
-          `SELECT * FROM [BSNCRAPP09].[DCS_IM].[dbo].[tbl_PD_TransferDtl] WHERE [TRNNO] = @tranNo AND [FCTYCD] = @factory`
+          `SELECT * FROM [dbo].[tbl_PD_TransferDtl] WHERE [TRNNO] = @tranNo AND [FCTYCD] = @factory`
         );
       if (results && results?.recordset?.length > 0) {
         pool.close();
@@ -598,6 +599,63 @@ class ProductionController {
           err: true,
           msg: "Something went wrong!",
         });
+      }
+    } catch (err) {
+      console.log(err);
+      return res.json({
+        err: true,
+        msg: err.message,
+      });
+    }
+  }
+
+  async SaveFg(req, res) {
+    try {
+
+    const {partNo,factory,pack,qty,planDate,fullName,remark,status} = req.body ;
+    if(!partNo || !factory || !pack || !qty || !planDate || !fullName || !status) {
+      return res.json({
+        err:true,
+        msg: "Data is required!"
+      })
+    }
+    const pool = await new sql.ConnectionPool(sqlConfig).connect(); // เปิด Connection
+    const getTransNo =  await utils.GetTransectionNoFgSave()
+      if(!getTransNo.err) {
+        console.log(getTransNo.lastTransec);
+        
+        const insert = await pool
+        .request()
+        .input("transNo",sql.NVarChar,getTransNo.lastTransec)
+        .input("partNo",sql.NVarChar,partNo)
+        .input("factory",sql.NVarChar,factory)
+        .input("pack",sql.NVarChar,pack)
+        .input("qty",sql.Int,Number(qty))
+        .input("planDate",sql.DateTime,planDate)
+        .input("fullName",sql.NVarChar,fullName)
+        .input("status",sql.NVarChar,status)
+        .input("remark",sql.NVarChar,remark)
+        .query(`INSERT INTO [dbo].[TBL_PRD_RECORD] ([TRAN_NO],[PART_NO],[FACTORY],[PACK],[QTY],[CREATED_AT],[PLAN_DATE]
+       ,[CREATED_BY],[REMARK],[STATUS_PRD]) VALUES (@transNo,@partNo,@factory,@pack,@qty,GETDATE(),@planDate,@fullName,@remark,@status)`)
+
+          if(insert && insert.rowsAffected[0] > 0) {
+            return res.json({
+              err:false,
+              msg: "FG Saved successfully!",
+              status : "Ok"
+            })
+          }else{
+            return res.json({
+              err:true,
+              msg: "Something went wrong"
+            })
+          }
+
+      }else{
+        return res.json({
+          err: true,
+          msg: getTransNo.msg
+        })
       }
     } catch (err) {
       console.log(err);

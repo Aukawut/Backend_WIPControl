@@ -149,6 +149,7 @@ app.get("/production/metal/used/:factory/:start/:end",prodution.GetMetalLogUsed)
 app.put("/production/update/plan/:id",prodution.UpdatePlan);
 app.post("/production/add/plan",prodution.AddPlan)
 app.delete("/production/delete/plan/:id",prodution.DeletePlan)
+app.post("/production/fg/save",prodution.SaveFg)
  
 // <--------- Lot Controller -------->
 app.post("/lotcontrol/add",lotControl.SaveLot)
@@ -195,7 +196,7 @@ app.get("/pack",pack.GetPack);
 app.get("/customer",customer.GetCustommer)
 
 
-//<-------- Sammary Report ------->
+//<-------- Summary Report ------->
 app.get("/production/report/:factory/:start/:end",summary.GetProdcutionTrans);
 app.get("/summary/report/:factory/:start/:end",summary.GetActualReportByFactory);
 app.get("/summary/actual/:factory/:start/:end",summary.SummaryActualPlanByFactory);

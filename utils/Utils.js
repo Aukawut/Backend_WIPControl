@@ -177,6 +177,45 @@ class Utils {
     }
   }
 
+  async GetTransectionNoFgSave () {
+    try{
+      //FG
+      const prefix = "FG" ;
+      const dateNow = moment(new Date()).format("YYYYMMDD");
+
+      const pool = await new sql.ConnectionPool(sqlConfig).connect(); // เปิด Connection
+      const resultTrans = await pool.request().query(`SELECT TOP 1 * FROM [dbo].[TBL_PRD_RECORD] WHERE [TRAN_NO] LIKE '%${dateNow}%' ORDER BY TRAN_NO DESC`)
+  
+      
+      if(resultTrans && resultTrans.recordset?.length > 0){
+        const lastTrans = resultTrans?.recordset[0].TRAN_NO ;
+        console.log(lastTrans);
+        
+        const nextTrans = Number(lastTrans.slice(-4)) + 1 ; // 1 + 1
+   
+          
+        const strFormatSQL = await pool.request().query(`SELECT FORMAT(${nextTrans}, '0000') AS FormattedNumber`);
+        pool.close();
+        console.log(strFormatSQL);
+        
+        return {
+          err:false,
+          lastTransec:`${prefix}${dateNow}${strFormatSQL.recordset[0].FormattedNumber}`
+        }
+      }else{
+        return {
+          err:false,
+          lastTransec:`${prefix}${dateNow}0001`
+        }
+      }
+   
+    }catch(err) {
+     console.log(err);
+     return {err:true,msg:err.message}
+     
+    }
+  }
+
   async CheckAdhesiveStock(parts) {
     try {
       let error = 0;
