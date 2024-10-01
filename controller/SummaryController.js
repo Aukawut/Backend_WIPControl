@@ -96,6 +96,38 @@ SELECT
             })
         }
     }
+
+    async CountAdhesivePlanByDate(req,res) {
+        const {start,end } = req.params ;
+        try{
+        const pool = await new sql.ConnectionPool(sqlConfig).connect();
+        const results = await pool
+        .request()
+        .query(`SELECT SUM(QTY) as sum_Qty,DATE_PLATE as PLAN_DATE FROM [dbo].[TBL_ADHESIVE_PLAN] 
+            WHERE DATE_PLATE BETWEEN '${start}' AND '${end}'
+            GROUP BY DATE_PLATE ORDER BY DATE_PLATE ASC`) ;
+        if(results && results.recordset?.length > 0 ) {
+            return res.json({
+                err:false,
+                results:results?.recordset,
+                status:"Ok"
+            })
+        }else{
+            return res.json({
+                err:true,
+                results:[],
+                msg:"Not Found"
+            })
+        }
+        }catch(err){
+            console.log(err);
+            return res.json({
+                err:true,
+                msg:err.message
+            })
+        }
+    }
+
     async CountProductionActualByDate(req,res) {
         const {factory,start,end } = req.params ;
         try{
@@ -114,6 +146,38 @@ SELECT
             LEFT JOIN [dbo].[tbl_PD_DailyClosedHdr] b ON a.TRNNO = b.TRNNO AND a.FCTYCD = b.FCTYCD ) m
             WHERE m.PdDate  BETWEEN '${start}' AND '${end}'AND m.FCTYCD = @factory
             GROUP BY m.PdDate ORDER BY m.PdDate ASC`) ;
+        if(results && results.recordset?.length > 0 ) {
+            return res.json({
+                err:false,
+                results:results?.recordset,
+                status:"Ok"
+            })
+        }else{
+            return res.json({
+                err:true,
+                results:[],
+                msg:"Not Found"
+            })
+        }
+        }catch(err){
+            console.log(err);
+            return res.json({
+                err:true,
+                msg:err.message
+            })
+        }
+    }
+
+    async CountAdhesiveActualByDate(req,res) {
+        const {start,end } = req.params ;
+        try{
+        const pool = await new sql.ConnectionPool(sqlConfig).connect();
+        const results = await pool
+        .request()
+        .query(`SELECT SUM(QTY) as sum_Qty,DATE_PLATE FROM [dbo].[TBL_ACTUAL_ADHESIVE] 
+            WHERE DATE_PLATE BETWEEN '${start}' AND '${end}'
+            GROUP BY DATE_PLATE
+            ORDER BY DATE_PLATE ASC`) ;
         if(results && results.recordset?.length > 0 ) {
             return res.json({
                 err:false,
@@ -187,6 +251,43 @@ SELECT
         }
     }
 
+    async CountAdhesiveDiffByDate(req,res) {
+        const {start,end } = req.params ;
+        try{
+        const pool = await new sql.ConnectionPool(sqlConfig).connect();
+        const results = await pool
+        .request()
+        .query(`SELECT m.DATE_PLATE,SUM(m.Diff) as sum_Qty FROM (
+                SELECT p.*,ISNULL(a.QTY,0) as QtyActual,
+                CASE WHEN 
+                p.QTY - ISNULL(a.QTY,0) < 0 THEN 0 ELSE p.QTY - ISNULL(a.QTY,0) END as Diff FROM [dbo].[TBL_ADHESIVE_PLAN] p
+                LEFT JOIN [dbo].[TBL_ACTUAL_ADHESIVE] a
+                ON p.PART_NO = a.PART_NO AND p.DATE_PLATE = a.DATE_PLATE ) m
+                WHERE m.DATE_PLATE BETWEEN '${start}' AND '${end}'
+                GROUP BY m.DATE_PLATE ORDER BY DATE_PLATE ASC`) ;
+        if(results && results.recordset?.length > 0 ) {
+            return res.json({
+                err:false,
+                results:results?.recordset,
+                status:"Ok"
+            })
+        }else{
+            return res.json({
+                err:true,
+                results:[],
+                msg:"Not Found"
+            })
+        }
+        }catch(err){
+            console.log(err);
+            return res.json({
+                err:true,
+                msg:err.message
+            })
+        }
+    }
+
+
     async CountProductionPlanNgByDate(req,res) {
         const {factory,start,end } = req.params ;
         try{
@@ -200,9 +301,9 @@ SELECT
     SELECT DATEADD(DAY, 1, PLAN_DATE) FROM DateRange WHERE PLAN_DATE < '${end}')
     SELECT 
         DR.PLAN_DATE, 
-        ISNULL(SUM(TNR.NG_QTY), 1) AS sum_Qty
+        ISNULL(SUM(TNR.QTY), 1) AS sum_Qty
     FROM DateRange DR
-    LEFT JOIN [dbo].[TBL_NG_RECORD] TNR 
+    LEFT JOIN (SELECT * FROM TBL_PRD_RECORD WHERE STATUS_PRD = 'NG')TNR 
         ON DR.PLAN_DATE = TNR.PLAN_DATE 
         AND TNR.[FACTORY] = @factory
     GROUP BY DR.PLAN_DATE
@@ -210,6 +311,37 @@ SELECT
         if(results && results.recordset?.length > 0 ) {
             return res.json({
                 err:false,
+                results:results?.recordset,
+                status:"Ok"
+            })
+        }else{
+            return res.json({
+                err:true,
+                results:[],
+                msg:"Not Found"
+            })
+        }
+        }catch(err){
+            console.log(err);
+            return res.json({
+                err:true,
+                msg:err.message
+            })
+        }
+    }
+
+    async CountAdhesivePlanNgByDate(req,res) {
+        const {start,end } = req.params ;
+        try{
+        const pool = await new sql.ConnectionPool(sqlConfig).connect();
+        const results = await pool
+        .request()
+        .query(`SELECT PLATE_DATE,SUM(NG_QTY) as  sum_Qty FROM [dbo].[TBL_NG_ADHESIVE]
+                WHERE PLATE_DATE BETWEEN '${start}' AND '${end}'
+                GROUP BY PLATE_DATE`) ;
+        if(results && results.recordset?.length > 0 ) {
+            return res.json({
+                err:false,  
                 results:results?.recordset,
                 status:"Ok"
             })
@@ -237,7 +369,7 @@ SELECT
         .request()
         .input("factory",sql.NVarChar,factory)
         .query(`WITH CTE_ AS (
-        SELECT a.PART_NO,a.Qty_Plan,a.PLAN_DATE,ISNULL(bb.Qty_Prd,0) as Qty_Prd FROM (
+        SELECT a.PART_NO,a.Qty_Plan,a.PLAN_DATE,ISNULL(bb.Qty_Prd,0) as Qty_Prd,ISNULL(ng.SUM_NG,0) as SUM_NG  FROM (
         SELECT SUM(QTY) as Qty_Plan,PART_NO,PLAN_DATE FROM [PSTH-SRRYAPP04].[PRD_WIPCONTROL].[dbo].[TBL_MOLDING_PLAN]
         WHERE PLAN_DATE BETWEEN '${start}' AND '${end}'AND FACTORY = @factory GROUP BY PART_NO,PLAN_DATE ) a
         LEFT JOIN (
@@ -250,12 +382,21 @@ SELECT
             CONVERT(VARCHAR(10), b.CRTDON, 120) as DateOnly
             FROM [dbo].[tbl_PD_DailyClosedDtl] a 
             LEFT JOIN [dbo].[tbl_PD_DailyClosedHdr] b ON a.TRNNO = b.TRNNO AND a.FCTYCD = b.FCTYCD ) m
+			
         WHERE m.PdDate BETWEEN '${start}' AND '${end}'
+
         GROUP BY m.ITEMNO,m.PdDate
 
-        ) bb ON a.PART_NO COLLATE Thai_CI_AS = bb.ITEMNO COLLATE Thai_CI_AS AND a.PLAN_DATE = bb.PdDate )
+        ) bb ON a.PART_NO COLLATE Thai_CI_AS = bb.ITEMNO COLLATE Thai_CI_AS AND a.PLAN_DATE = bb.PdDate
+		LEFT JOIN 
+			(SELECT SUM(QTY) as SUM_NG,CONVERT(DATE,PLAN_DATE) as PLAN_DATE,PART_NO FROM [PSTH-SRRYAPP04].[PRD_WIPCONTROL].[dbo].[TBL_PRD_RECORD]
+		WHERE [STATUS_PRD] = 'NG' AND FACTORY = @factory GROUP BY CONVERT(DATE,PLAN_DATE),PART_NO) ng 
+		ON a.PART_NO COLLATE Thai_CI_AS = ng.PART_NO COLLATE Thai_CI_AS AND a.PLAN_DATE = ng.PLAN_DATE
+		)
+		
         SELECT CTE_.PLAN_DATE,SUM(CTE_.Qty_Plan) as Sum_Plan_Qty,
-        SUM(CTE_.Qty_Prd) as Sum_Qty_Prd
+        SUM(CTE_.Qty_Prd) as Sum_Qty_Prd,
+		SUM(CTE_.SUM_NG) as Sum_Qty_NG
         FROM CTE_  GROUP BY CTE_.PLAN_DATE 
         ORDER BY CTE_.PLAN_DATE`) ;
         if(results && results.recordset?.length > 0 ) {
@@ -265,6 +406,46 @@ SELECT
                 status:"Ok"
             })
         }else{
+            return res.json({
+                err:true,
+                results:[],
+                msg:"Not Found"
+            })
+        }
+        }catch(err){
+            console.log(err);
+            return res.json({
+                err:true,
+                msg:err.message
+            })
+        }
+    }
+
+    async GetActualAdhesiveReportByDate(req,res) {
+        const {start,end } = req.params ;
+        try{
+        const pool = await new sql.ConnectionPool(sqlConfig).connect();
+        const results = await pool
+        .request()
+        .query(`WITH CTE_ACTUAL as (
+                SELECT m.DATE_PLATE,SUM(m.ActualQty) as SumActual,SUM(m.QTY) as SumQtyPlan FROM (
+                SELECT p.*,ISNULL(a.QTY,0) as ActualQty FROM [dbo].[TBL_ADHESIVE_PLAN] p LEFT JOIN  
+                [dbo].[TBL_ACTUAL_ADHESIVE] a ON p.PART_NO = a.PART_NO AND p.PH_LINE = a.PH_LINE AND 
+                p.DATE_PLATE = a.DATE_PLATE ) m 
+                GROUP BY m.DATE_PLATE ) 
+                SELECT ca.*,ISNULL(ng.Qty_NG,0) as SumQtyNG,ISNULL(ca.SumQtyPlan,0) - ISNULL(ca.SumActual,0) as SumDiff  FROM CTE_ACTUAL ca
+                LEFT JOIN  (
+                SELECT SUM(NG_QTY) as Qty_NG,nga.PLATE_DATE FROM [dbo].[TBL_NG_ADHESIVE] nga GROUP BY nga.PLATE_DATE
+                ) ng ON ca.DATE_PLATE = ng.PLATE_DATE WHERE ca.DATE_PLATE BETWEEN '${start}' AND '${end}'`) ;
+        if(results && results.recordset?.length > 0 ) {
+            pool.close();
+            return res.json({
+                err:false,
+                results:results?.recordset,
+                status:"Ok"
+            })
+        }else{
+            pool.close();
             return res.json({
                 err:true,
                 results:[],
@@ -310,11 +491,11 @@ SELECT
                     ON a.TRNNO = b.TRNNO 
                     AND a.FCTYCD = b.FCTYCD
             ) m
-            WHERE m.PdDate BETWEEN '${start}' AND '${end}'
+            WHERE m.PdDate  BETWEEN '${start}' AND '${end}'
             AND m.FCTYCD = @factory
         ),
-		ProductionNgRecord AS (SELECT ISNULL(SUM(n.NG_QTY),0) as Ng_Qty 
-		FROM [PSTH-SRRYAPP04].[PRD_WIPCONTROL].[dbo].[TBL_NG_RECORD] n WHERE n.PLAN_DATE BETWEEN '${start}' AND '${end}') 
+		ProductionNgRecord AS (SELECT ISNULL(SUM(n.[QTY]),0) as Ng_Qty 
+		FROM [PSTH-SRRYAPP04].[PRD_WIPCONTROL].[dbo].[TBL_PRD_RECORD] n WHERE (n.PLAN_DATE BETWEEN '${start}' AND '${end}') AND [STATUS_PRD] = 'NG' AND [FACTORY] = @factory) 
         SELECT pd.Qty_Plan, prd.Qty_Prd,prdNg.Ng_Qty,(prd.Qty_Prd + Ng_Qty) - pd.Qty_Plan as DiffQty
         FROM PlanData pd, ProductionData prd,ProductionNgRecord prdNg`) ;
         if(results && results.recordset?.length > 0 ) {
@@ -340,6 +521,42 @@ SELECT
             })
         }
     }
+
+    async SummaryActualAdhesivePlanByFactory(req,res) {
+        const {start,end } = req.params ;
+
+        try{
+        const pool = await new sql.ConnectionPool(sqlConfig).connect();
+        const results = await pool
+        .request()
+        .query(`SELECT a.*,a.Qty_Plan - a.Qty_Prd as DiffQty FROM (
+                SELECT ( SELECT SUM(QTY) as Qty_Plan FROM [dbo].[TBL_ADHESIVE_PLAN] WHERE DATE_PLATE BETWEEN '${start}' AND '${end}') as Qty_Plan,
+                (SELECT SUM(QTY) as Qty_Prd FROM [dbo].[TBL_ACTUAL_ADHESIVE] WHERE DATE_PLATE BETWEEN '${start}' AND '${end}')  as Qty_Prd,
+                (SELECT SUM(NG_QTY) as Ng_Qty FROM [dbo].[TBL_NG_ADHESIVE] WHERE PLATE_DATE BETWEEN '${start}' AND '${end}')  as Ng_Qty) a`) ;
+        if(results && results.recordset?.length > 0 ) {
+            pool.close();
+            return res.json({
+                err:false,
+                results:results?.recordset,
+                status:"Ok"
+            })
+        }else{
+            pool.close();
+            return res.json({
+                err:true,
+                results:[],
+                msg:"Not Found"
+            })
+        }
+        }catch(err){
+            console.log(err);
+            return res.json({
+                err:true,
+                msg:err.message
+            })
+        }
+    }
+
     async SummaryRMUsed(req,res) {
         const {factory,start,end } = req.params ;
 
@@ -365,7 +582,8 @@ SELECT
 							FROM CTE_T cc 
 								LEFT JOIN (SELECT * FROM [PSTH-SRRYAPP04].[PRD_WIPCONTROL].[dbo].[TBL_BOMS]) b
 								ON cc.ITEMNO COLLATE Thai_CI_AI = b.[FG_PARTNO] COLLATE Thai_CI_AI
-								LEFT JOIN (	SELECT SUM(NG_QTY) as Qty_Ng,PART_NO,PLAN_DATE,FACTORY FROM [PSTH-SRRYAPP04].[PRD_WIPCONTROL].[dbo].[TBL_NG_RECORD]
+								LEFT JOIN (	SELECT SUM(QTY) as Qty_Ng,PART_NO,PLAN_DATE,FACTORY FROM [PSTH-SRRYAPP04].[PRD_WIPCONTROL].[dbo].[TBL_PRD_RECORD]
+								WHERE STATUS_PRD = 'NG'
 								GROUP BY FACTORY,PART_NO,PLAN_DATE) ng
 								ON cc.PdDate = ng.PLAN_DATE AND  cc.FCTYCD COLLATE Thai_CI_AI = ng.FACTORY COLLATE Thai_CI_AI
 								AND cc.ITEMNO COLLATE Thai_CI_AI = ng.PART_NO COLLATE Thai_CI_AI
@@ -404,8 +622,8 @@ SELECT
         const results = await pool
         .request()
         .input("factory",sql.NVarChar,factory)
-        .query(`SELECT TOP ${top} SUM(NG_QTY) as SUM_NG,PART_NO  FROM [dbo].[TBL_NG_RECORD] 
-                WHERE [PLAN_DATE] BETWEEN '${start}' AND '${end}' AND FACTORY = @factory
+        .query(`SELECT TOP ${top} SUM(QTY) as SUM_NG,PART_NO  FROM [dbo].[TBL_PRD_RECORD]
+                WHERE [PLAN_DATE] BETWEEN '${start}' AND '${end}' AND FACTORY = @factory AND [STATUS_PRD] = 'NG'
                 GROUP BY PART_NO ORDER BY SUM_NG DESC`)
         if (results && results.recordset?.length > 0) {
         pool.close()
@@ -423,6 +641,75 @@ SELECT
           });
         }
     }catch(err){
+            console.log(err);
+            return res.json({
+                err:true,
+                msg:err.message
+            })
+        }
+    }
+
+    async SummaryAdhesiveNgPart(req,res) {
+        const {top,start,end} = req.params ;
+        
+        try{
+        const pool = await new sql.ConnectionPool(sqlConfig).connect();
+        const results = await pool
+        .request()
+        .query(`SELECT TOP ${top} SUM(NG_QTY) as SUM_NG,PART_NO  FROM [dbo].[TBL_NG_ADHESIVE]
+                WHERE PLATE_DATE BETWEEN '${start}' AND '${end}'
+                GROUP BY PART_NO ORDER BY SUM_NG DESC`)
+        if (results && results.recordset?.length > 0) {
+        pool.close()
+          return res.json({
+            err: false,
+            results: results.recordset,
+            status: "Ok",
+          });
+        } else {
+        pool.close()
+          return res.json({
+            err: true,
+            results: [],
+            msg: "Not Found",
+          });
+        }
+    }catch(err){
+            console.log(err);
+            return res.json({
+                err:true,
+                msg:err.message
+            })
+        }
+    }
+
+    async SummaryActualAdhesive(req,res) {
+        const {start,end } = req.params ;
+
+        try{
+        const pool = await new sql.ConnectionPool(sqlConfig).connect();
+        const results = await pool
+        .request()
+        .query(`SELECT (SELECT SUM(QTY) FROM TBL_ADHESIVE_PLAN WHERE DATE_PLATE BETWEEN '${start}' AND '${end}') AS Qty_Plan,
+					(SELECT SUM(QTY) FROM TBL_ACTUAL_ADHESIVE WHERE DATE_PLATE BETWEEN '${start}' AND '${end}') AS Qty_Prd,
+					(SELECT SUM(QTY) FROM TBL_ADHESIVE_PLAN WHERE DATE_PLATE BETWEEN '${start}' AND '${end}') - (SELECT SUM(QTY) FROM TBL_ACTUAL_ADHESIVE WHERE DATE_PLATE BETWEEN '${start}' AND '${end}')  as  DiffQty,
+					(SELECT SUM(NG_QTY) FROM TBL_NG_ADHESIVE WHERE PLATE_DATE BETWEEN '${start}' AND '${end}') AS Ng_Qty`) ;
+        if(results && results.recordset?.length > 0 ) {
+            pool.close();
+            return res.json({
+                err:false,
+                results:results?.recordset,
+                status:"Ok"
+            })
+        }else{
+            pool.close();
+            return res.json({
+                err:true,
+                results:[],
+                msg:"Not Found"
+            })
+        }
+        }catch(err){
             console.log(err);
             return res.json({
                 err:true,

@@ -113,6 +113,7 @@ app.get("/wip/summary/:factory/:by", wip.WipSummary);
 
 //<------ Adhesive Plan -------->
 app.get("/plan/adhesive", plan.GetAllAdhesivePlan);
+app.get("/plan/adhesive/plateDate/:date", plan.GetAdhesivePlanByPlateDate);
 app.get("/plan/adhesive/:start/:end", plan.GetAdhesivePlanByDuration);
 app.post("/plan/adhesive",upload.single("file"), plan.SaveAdhesivePlan);
 
@@ -129,11 +130,32 @@ app.get("/request/metal/detail/:reqNo",adhesive.GetRequestDetailByReq);
 app.put("/request/cancel/:reqNo",adhesive.CancelRequestMetal)
 app.put("/request/metal/approve/:reqNo",adhesive.ApproveRequestMetal)
 app.get("/adhesive/request/running",adhesive.GetRunningNumber)
+app.get("/adhesive/supply/running",adhesive.GetSupplyRunningNumber)
 app.get('/stock/adhesive/roller/:partNo',adhesive.GetRollerByPart);
 app.get("/adhesive/check/boxNotFull/:partNo/:qty",adhesive.CheckBoxNotFull)
 app.get("/adhesive/lot/forRequest",adhesive.SearchLotForRequest)
 app.get("/adhesive/lot/forRequest/:partNo",adhesive.SearchLotForRequestByPart)
 app.get("/adhesive/rollerDetail",adhesive.SearchRollerDetailByPart)
+app.post("/adhesive/notgood/save",adhesive.SaveNotGoodAdhesive)
+app.get("/adhesive/notgood/:start/:end",adhesive.GetNotGoodAdhesiveByDate)
+app.put("/adhesive/notgood/update/:id",adhesive.UpdateNotGoodAdhesive)
+app.delete("/adhesive/notgood/:id",adhesive.DeleteNotGoodById)
+app.put("/adhesive/stock/setup",adhesive.SetUpdateStockMetal)
+app.get("/metal/request/:start/:end/:notFinished",adhesive.GetAllRequestMetal)
+app.get("/request/metal/trans/:transecNo",adhesive.GetAllRequestMetalByTrans)
+app.put("/request/metal/cancel/:transecNo",adhesive.CancelRequestMetalByTrans);
+app.get("/tags/adhesive/:partNo",adhesive.GetStockTagNoByPart);
+app.get("/adhesive/lotdetail/:partNo",adhesive.GetLotDetailByPartNo);
+app.get("/roller/search/:lotNo",adhesive.SearchRollerByLot);
+app.get("/request/outstand/:partNo",adhesive.GetRequestOutStand);
+app.get("/roller/summary/qty/:partNo",adhesive.SumQtyInRollerByPartNo);
+app.post("/save/request/supplymetal",adhesive.SaveRequestSupply);
+app.get("/adhesive/supply/:start/:end",adhesive.GetMetalSupplyByDate);
+app.get("/metal/request/waitingClose",adhesive.SeachRequestMetalWaitClose)
+app.get("/metal/request/lot",adhesive.SeachRequestMetalAllLot)
+app.get("/metal/lotDetail/:lotNo/:tranNo",adhesive.SearchLotDetailByTranNo)
+app.get("/metal/supply/requestDetail/:tranNo",adhesive.SearchSupplyDetailByTranNo)
+app.post("/supply/metal",adhesive.SupplyMetal)
 
 //<------ Production ------>
 app.get("/production/transfer/:start/:end",prodution.GetProdTrnByDate);
@@ -149,7 +171,10 @@ app.get("/production/metal/used/:factory/:start/:end",prodution.GetMetalLogUsed)
 app.put("/production/update/plan/:id",prodution.UpdatePlan);
 app.post("/production/add/plan",prodution.AddPlan)
 app.delete("/production/delete/plan/:id",prodution.DeletePlan)
+app.get("/production/actual/:start/:end/:factory",prodution.GetFgActualByFactory)
 app.post("/production/fg/save",prodution.SaveFg)
+app.put("/production/fg/update/:id",prodution.UpdateFgPrd)
+app.delete("/production/fg/delete/:id",prodution.DeleteFg)
  
 // <--------- Lot Controller -------->
 app.post("/lotcontrol/add",lotControl.SaveLot)
@@ -168,6 +193,7 @@ app.get("/tag/detail/:lotNo",lotControl.SearchTagByLot)
 app.put("/lotcontrol/cancel/:lotNo",lotControl.CancelLot)
 
 
+
 //<------ Machine Controller --------->
 app.get("/machineMaster",mc.GetMachineMaster)
 app.get("/machine",mc.GetMachine)
@@ -178,6 +204,11 @@ app.get("/parts",part.GetPartMaster);
 app.get("/partsFG",part.GetFGPartMaster);
 app.get("/part/:partNo",part.GetPartByPartNo);
 app.post("/download/fg/part",part.DownloadFGPartFromIM);
+app.post("/parts/adhesive/add",part.AddPartAdhesive)
+app.put("/parts/adhesive/update/:tranNo",part.UpdatePartAdhesive)
+app.put("/parts/adhesive/cancel/:transecNo",part.CancelAdhesivePart)
+app.get("/parts/adhesive",part.GetAdhesivePart)
+app.get("/parts/runningNo",part.GetAdhesivePartRunningNo)
 
 //<-------- Receive Controller ---------->
 app.get("/runningNo/receive",receive.GetRunningNumber)
@@ -199,13 +230,21 @@ app.get("/customer",customer.GetCustommer)
 //<-------- Summary Report ------->
 app.get("/production/report/:factory/:start/:end",summary.GetProdcutionTrans);
 app.get("/summary/report/:factory/:start/:end",summary.GetActualReportByFactory);
+app.get("/adhesive/summary/report/:start/:end",summary.GetActualAdhesiveReportByDate);
 app.get("/summary/actual/:factory/:start/:end",summary.SummaryActualPlanByFactory);
+app.get("/adhesive/summary/actual/:start/:end",summary.SummaryActualAdhesivePlanByFactory);
 app.get("/count/plan/:factory/:start/:end",summary.CountPlanByDate);
+app.get("/adhesive/count/plan/:start/:end",summary.CountAdhesivePlanByDate);
 app.get("/count/actual/:factory/:start/:end",summary.CountProductionActualByDate);
+app.get("/adhesive/count/actual/:start/:end",summary.CountAdhesiveActualByDate);
 app.get("/count/diff/:factory/:start/:end",summary.CountProductionPlanDiffByDate);
+app.get("/adhesive/count/diff/:start/:end",summary.CountAdhesiveDiffByDate);
 app.get("/count/ng/:factory/:start/:end",summary.CountProductionPlanNgByDate);
+app.get("/adhesive/count/ng/:start/:end",summary.CountAdhesivePlanNgByDate);
 app.get("/metal/used/:factory/:start/:end",summary.SummaryRMUsed);
 app.get("/part/notgood/:factory/:start/:end/:top",summary.SummaryProductionNgPart);
+app.get("/adhesive/part/notgood/:start/:end/:top",summary.SummaryAdhesiveNgPart);
+app.get("/summary/adhesive/actual/:start/:end",summary.SummaryActualAdhesive);
 
 //<------ BomController ------>
 app.get("/bom",bom.GetAllBom);
@@ -213,6 +252,7 @@ app.get("/bom/partMaster",bom.GetPartBomMaster);
 
 //<------- Auth --------->
 app.post("/login/domain",auth.DomainLogin);
+app.post("/login/employeeCode",auth.LoginByEmployeeCode);
 app.get("/auth/token/approve/metal/:reqNo",auth.AuthApproveReqMetal);
 
 app.listen(PORT, () => {

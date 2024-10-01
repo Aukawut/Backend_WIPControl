@@ -609,6 +609,71 @@ class ProductionController {
     }
   }
 
+  async GetFgActualByFactory(req, res) {
+    const { factory,start,end } = req.params;
+
+    const pool = await new sql.ConnectionPool(sqlConfig).connect(); // เปิด Connection
+
+    try {
+      const results = await pool
+        .request()
+        .input("factory", sql.NVarChar, factory)
+        .query(`SELECT * FROM [dbo].[TBL_PRD_RECORD] 
+                WHERE [FACTORY] = @factory AND [PLAN_DATE] BETWEEN '${start}' AND '${end}' ORDER BY [CREATED_AT] DESC`);
+      if(results && results?.recordset?.length > 0) {
+        return res.json({
+          err:false,
+          results:results.recordset,
+          status:"Ok"
+        })
+      }else{
+        return res.json({
+          err:true,
+          results:[]
+        })
+      }
+      
+    } catch (err) {
+      console.log(err);
+      return res.json({
+        err: true,
+        msg: err.message,
+      });
+    }
+  }
+
+  async DeleteFg(req, res) {
+    try {
+      const {id} = req.params ;
+      const pool = await new sql.ConnectionPool(sqlConfig).connect(); // เปิด Connection
+      const deleteRecord = await pool
+      .request()
+      .input("id",sql.Int,id)
+      .query(`DELETE FROM [dbo].[TBL_PRD_RECORD] WHERE [Id] = @id`)
+        if(deleteRecord && deleteRecord.rowsAffected[0] > 0) {
+          pool.close();
+          return res.json({
+            err:false,
+            msg:"Deleted successfully!",
+            status: "Ok"
+          })
+        }else{
+          pool.close();
+          return res.json({
+            err:true,
+            msg:"Something went wrong!"
+          })
+        }
+    } catch (err) {
+      console.log(err);
+      return res.json({
+        err: true,
+        msg: err.message,
+      });
+    }
+  }
+
+
   async SaveFg(req, res) {
     try {
 
@@ -619,6 +684,13 @@ class ProductionController {
         msg: "Data is required!"
       })
     }
+    if(status == "NG" && remark == "") {
+      return res.json({
+        err:false,
+        msg:"Please, input remark !"
+      }) 
+    }
+
     const pool = await new sql.ConnectionPool(sqlConfig).connect(); // เปิด Connection
     const getTransNo =  await utils.GetTransectionNoFgSave()
       if(!getTransNo.err) {
@@ -641,7 +713,7 @@ class ProductionController {
           if(insert && insert.rowsAffected[0] > 0) {
             return res.json({
               err:false,
-              msg: "FG Saved successfully!",
+              msg: "Saved successfully!",
               status : "Ok"
             })
           }else{
@@ -665,6 +737,65 @@ class ProductionController {
       });
     }
   }
+
+  async UpdateFgPrd(req, res) {
+    try {
+    const {id} = req.params ;
+    const {partNo,pack,qty,planDate,fullName,remark,status} = req.body ;
+
+    if(!partNo || !pack || !qty || !planDate || !fullName || !status) {
+      return res.json({
+        err:true,
+        msg: "Data is required!"
+      })
+    }
+    if(status == "NG" && remark == "") {
+      return res.json({
+        err:false,
+        msg:"Please, input remark !"
+      }) 
+    }
+
+        const pool = await new sql.ConnectionPool(sqlConfig).connect(); // เปิด Connection
+
+        const update = await pool
+        .request()
+     
+        .input("partNo",sql.NVarChar,partNo)
+        .input("pack",sql.NVarChar,pack)
+        .input("qty",sql.Int,Number(qty))
+        .input("planDate",sql.DateTime,planDate)
+        .input("fullName",sql.NVarChar,fullName)
+        .input("status",sql.NVarChar,status)
+        .input("remark",sql.NVarChar,remark)
+        .input("id",sql.Int,id)
+        .query(`UPDATE [dbo].[TBL_PRD_RECORD] SET [PART_NO] = @partNo,[PACK] =  @pack,[QTY] = @qty,[PLAN_DATE] = @planDate
+       ,[UPDATED_AT] = GETDATE(),[REMARK] = @remark,[STATUS_PRD] = @status, [UPDATED_BY] = @fullName WHERE [Id] = @id`)
+
+          if(update && update.rowsAffected[0] > 0) {
+            pool.close();
+            return res.json({
+              err:false,
+              msg: "Updated successfully!",
+              status : "Ok"
+            })
+          }else{
+            return res.json({
+              err:true,
+              msg: "Something went wrong"
+            })
+          }
+
+    
+    } catch (err) {
+      console.log(err);
+      return res.json({
+        err: true,
+        msg: err.message,
+      });
+    }
+  }
+
 
   async UpdatePlan(req, res) {
     const { id } = req.params; // API Params :id

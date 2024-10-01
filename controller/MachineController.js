@@ -20,7 +20,7 @@ class MachineController {
             }else{
               return res.json({
                 err: true,
-                msg: res.json(),
+                msg: "Machine isn't found",
                 status: "Ok",
               });
             }
@@ -50,7 +50,7 @@ class MachineController {
           }else{
             return res.json({
               err: true,
-              msg: res.json(),
+              msg: "Not Found",
               status: "Ok",
             });
           }
@@ -80,7 +80,7 @@ class MachineController {
         }else{
           return res.json({
             err: true,
-            msg: res.json(),
+            msg: "Not Found",
             status: "Ok",
           });
         }

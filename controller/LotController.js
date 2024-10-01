@@ -178,7 +178,7 @@ class LotController {
       } else {
         return res.json({
           err: true,
-          msg: res.json(),
+          msg: "Not Found",
           status: "Ok",
         });
       }
@@ -208,7 +208,8 @@ class LotController {
       } else {
         return res.json({
           err: true,
-          msg: res.json(),
+          msg: "Not Found",
+          result:[],
           status: "Ok",
         });
       }

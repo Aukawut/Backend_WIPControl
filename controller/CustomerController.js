@@ -21,7 +21,7 @@ async GetCustommer (req,res) {
             pool.close()
           return res.json({
             err: true,
-            msg: res.json(),
+            msg: "Not Found",
             status: "Ok",
           });
         }

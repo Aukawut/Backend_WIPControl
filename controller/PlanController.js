@@ -34,6 +34,44 @@ class PlanController {
       });
     }
   }
+
+  async GetAdhesivePlanByPlateDate(req, res) {
+    const {date} = req.params ;
+    try {
+      const pool = await new sql.ConnectionPool(sqlConfig).connect();
+      const results = await pool
+        .request()
+        .query(
+          `SELECT a.PART_NO,COUNT(*) as COUNT_ ,a.DATE_PLATE,SUM(QTY) as SUM_PN_QTY,
+          SUM(LIMIT_NG) as SUM_LIMIT,SUM(QTY_ACTUAL) as SUM_ACTUAL
+          FROM (
+          SELECT ap.PART_NO,ap.DATE_PLATE,ap.GLUE_TYPE,ap.QTY,ISNULL(aa.QTY,0) as QTY_ACTUAL,ap.CREATED_AT,ap.QTY - ISNULL(aa.QTY,0) as  LIMIT_NG FROM [dbo].[TBL_ADHESIVE_PLAN] ap
+          LEFT JOIN [dbo].[TBL_ACTUAL_ADHESIVE] aa ON ap.PART_NO = aa.PART_NO  
+          AND ap.DATE_PLAN = aa.DATE_PLAN AND ap.DATE_PLATE = aa.DATE_PLATE
+          WHERE ap.QTY - ISNULL(aa.QTY,0) != 0 AND ap.DATE_PLATE = '${date}' ) a GROUP BY a.PART_NO,a.DATE_PLATE ORDER BY a.PART_NO`
+        );
+      if (results && results?.recordset?.length > 0) {
+        pool.close();
+        return res.json({
+          err: false,
+          results: results?.recordset,
+          status: "Ok",
+        });
+      } else {
+        pool.close();
+        return res.json({
+          err: true,
+          results: [],
+        });
+      }
+    } catch (err) {
+      console.log(err);
+      return res.json({
+        err: true,
+        msg: err.message,
+      });
+    }
+  }
   async GetAdhesivePlanByDuration(req, res) {
     const {start,end} = req.params ;
   

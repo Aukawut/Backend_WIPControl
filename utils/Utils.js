@@ -106,8 +106,7 @@ class Utils {
           lastName: results.recordset[0].UHR_LastName_en,
           role: results.recordset[0].NAME_ROLE,
           factory: results.recordset[0].FACTORY_NAME,
-          fullName:results.recordset[0].UHR_FullName_en
-
+          fullName: results.recordset[0].UHR_FullName_en,
         };
 
         return { err: false, payload: payload };
@@ -162,8 +161,8 @@ class Utils {
         .input("pack", sql.Int, Number(results?.recordset[0].C_PACK) + 1)
         .input("qty", sql.Int, Number(results?.recordset[0].C_QTY) + 1)
         .query(stmt);
-        console.log(stmt);
-        
+      console.log(stmt);
+
       if (update && update?.rowsAffected[0] > 0) {
         pool.close();
         return { err: false, msg: "Logs changed successfully" };
@@ -177,42 +176,44 @@ class Utils {
     }
   }
 
-  async GetTransectionNoFgSave () {
-    try{
+  async GetTransectionNoFgSave() {
+    try {
       //FG
-      const prefix = "FG" ;
+      const prefix = "FG";
       const dateNow = moment(new Date()).format("YYYYMMDD");
 
       const pool = await new sql.ConnectionPool(sqlConfig).connect(); // เปิด Connection
-      const resultTrans = await pool.request().query(`SELECT TOP 1 * FROM [dbo].[TBL_PRD_RECORD] WHERE [TRAN_NO] LIKE '%${dateNow}%' ORDER BY TRAN_NO DESC`)
-  
-      
-      if(resultTrans && resultTrans.recordset?.length > 0){
-        const lastTrans = resultTrans?.recordset[0].TRAN_NO ;
+      const resultTrans = await pool
+        .request()
+        .query(
+          `SELECT TOP 1 * FROM [dbo].[TBL_PRD_RECORD] WHERE [TRAN_NO] LIKE '%${dateNow}%' ORDER BY TRAN_NO DESC`
+        );
+
+      if (resultTrans && resultTrans.recordset?.length > 0) {
+        const lastTrans = resultTrans?.recordset[0].TRAN_NO;
         console.log(lastTrans);
-        
-        const nextTrans = Number(lastTrans.slice(-4)) + 1 ; // 1 + 1
-   
-          
-        const strFormatSQL = await pool.request().query(`SELECT FORMAT(${nextTrans}, '0000') AS FormattedNumber`);
+
+        const nextTrans = Number(lastTrans.slice(-4)) + 1; // 1 + 1
+
+        const strFormatSQL = await pool
+          .request()
+          .query(`SELECT FORMAT(${nextTrans}, '0000') AS FormattedNumber`);
         pool.close();
         console.log(strFormatSQL);
-        
+
         return {
-          err:false,
-          lastTransec:`${prefix}${dateNow}${strFormatSQL.recordset[0].FormattedNumber}`
-        }
-      }else{
+          err: false,
+          lastTransec: `${prefix}${dateNow}${strFormatSQL.recordset[0].FormattedNumber}`,
+        };
+      } else {
         return {
-          err:false,
-          lastTransec:`${prefix}${dateNow}0001`
-        }
+          err: false,
+          lastTransec: `${prefix}${dateNow}0001`,
+        };
       }
-   
-    }catch(err) {
-     console.log(err);
-     return {err:true,msg:err.message}
-     
+    } catch (err) {
+      console.log(err);
+      return { err: true, msg: err.message };
     }
   }
 
@@ -281,13 +282,12 @@ class Utils {
     try {
       const payload = {
         requestNo: reqNo,
-        by:"wipcontrol.dev",
-        iat:Date.now()
+        by: "wipcontrol.dev",
+        iat: Date.now(),
       };
 
       const token = jwt.sign(payload, secert);
-      return {err:false,token:token} ;
-
+      return { err: false, token: token };
     } catch (err) {
       console.log(err);
       return { err: true, msg: err.message };
@@ -296,6 +296,7 @@ class Utils {
 
   async SendMailToApprover(reqNo) {
     try {
+      const poolApp02 = await new sql.ConnectionPool(sqlConfigApp02).connect();
       const pool = await new sql.ConnectionPool(sqlConfig).connect();
       const approver = await pool.request()
         .query(`SELECT u.*,r.NAME_ROLE ,hr.UHR_Email,hr.UHR_FullName_th,hr.UHR_FirstName_en
@@ -308,24 +309,23 @@ class Utils {
         let html = "";
         html += `<div style="font-size: 15px; font-family: 'Cordia New';">
         <h4> <b>Request No. ${reqNo} </b></h4>`;
-        const response = await pool
+        const response = await poolApp02
           .request()
           .input("reqNo", sql.NVarChar, reqNo)
           .query(
-            `SELECT rd.*,r.REQUESTOR,r.TOKEN,h.UHR_FullName_th FROM [dbo].[TBL_METAL_REQDTL] rd
-          LEFT JOIN TBL_METAL_REQ r ON r.REQ_NO = rd.REQ_NO
-          LEFT JOIN V_AllUsers h ON r.REQUESTOR COLLATE Thai_CI_AI = h.UHR_EmpCode COLLATE Thai_CI_AI
-          WHERE rd.[REQ_NO] = @reqNo`
+            `SELECT *  FROM [dbo].[tbl_crequestsupply] WHERE tran_no = @reqNo ORDER BY items ASC`
           );
         if (response && response?.recordset?.length > 0) {
           html += `<h4><b>Dear, Admin WIP Control System </b></h4>
-          <h4><b>ผู้ขอ : ${response.recordset[0].UHR_FullName_th}</b></h4>
+          <h4><b>ผู้ขอ : ${response.recordset[0].user_supply}</b></h4>
+          <h4><b>โรงงาน : ${response.recordset[0].factory}</b></h4>
       <table style="border: 1px solid black; border-collapse: collapse; width: 100%;font-size: 15px; font-family: 'Cordia New';">
         <thead>
           <tr>
             <th style="border: 1px solid black; padding: 4px;text-align:center;">No.</th>
             <th style="border: 1px solid black; padding: 4px;text-align:center;">Part No.</th>
             <th style="border: 1px solid black; padding: 4px;text-align:center;">Qty.</th>
+            <th style="border: 1px solid black; padding: 4px;text-align:center;">Roller No.</th>
           </tr>
     </thead>
     <tbody>`;
@@ -335,10 +335,13 @@ class Utils {
         i + 1
       }</td>
       <td style="border: 1px solid black; padding: 4px;text-align:center;">${
-        response?.recordset[i].PART_NO
+        response?.recordset[i].partno
       }</td>
       <td style="border: 1px solid black; padding: 4px;text-align:center;">${
-        response?.recordset[i].QTY
+        response?.recordset[i].qty_supply
+      }</td>
+      <td style="border: 1px solid black; padding: 4px;text-align:center;">${
+        response?.recordset[i].roller_no
       }</td>
     </tr>`;
           }
@@ -418,14 +421,14 @@ IT Developer - Thank you 😊`;
       return { err: true, msg: err.message };
     }
   }
-  
-  async SaveTagsNewLot(tags,tranNo,tranDate,lotNo,boxTotal,createBy) {
+
+  async SaveTagsNewLot(tags, tranNo, tranDate, lotNo, boxTotal, createBy) {
     try {
       // tags == Array
 
       const pool = await new sql.ConnectionPool(sqlConfig).connect();
       let inserted = 0;
-    //  const dateNow = moment(new Date()).utc().format("YYYY-MM-DD HH:MM");
+      //  const dateNow = moment(new Date()).utc().format("YYYY-MM-DD HH:MM");
 
       // <--- Start Loop -->
       for (let i = 0; i < tags?.length; i++) {
@@ -443,8 +446,12 @@ IT Developer - Thank you 😊`;
           .input("box_total", sql.Float, boxTotal)
           .input("status", sql.NVarChar, "USE")
           .input("create_by", sql.NVarChar, createBy)
-          .input("tag_qrcode",sql.Image,await QRCode.toBuffer(tags[i].tagNo, { type: "png" }))
-          .input("status_rev_tag",sql.NVarChar,"N")
+          .input(
+            "tag_qrcode",
+            sql.Image,
+            await QRCode.toBuffer(tags[i].tagNo, { type: "png" })
+          )
+          .input("status_rev_tag", sql.NVarChar, "N")
           .query(`INSERT INTO [SRRYAPP02].[DB_AVP2WIPCONTROL].[dbo].[tbl_clotcontroldt]
         (tran_no,tran_date,lot_no,partno,tagno,itemtag,qty_box,box_total,status,create_by,create_date,tag_qrcode,status_rev_tag)
         VALUES (@tran_no,@tran_date,@lot_no,@partno,@tagno,@itemtag,@qty_box,@box_total,@status,@create_by,GETDATE(),@tag_qrcode,@status_rev_tag)
@@ -455,9 +462,8 @@ IT Developer - Thank you 😊`;
           inserted++;
         }
       }
-     
-      // <--- End Loop -->
 
+      // <--- End Loop -->
 
       if (inserted == tags?.length) {
         return { err: false, msg: "save tag!", status: "Ok" };
@@ -492,7 +498,7 @@ IT Developer - Thank you 😊`;
           err: false,
           msg: "Ok",
           lastNo: `${prefix}${dateNow}${format.recordset[0].PaddedNumber}`,
-        }
+        };
       } else {
         pool.close();
         return {
@@ -503,13 +509,42 @@ IT Developer - Thank you 😊`;
       }
     } catch (err) {
       console.log(err);
-      return  {
+      return {
         err: true,
         msg: err.message,
       };
     }
   }
 
+  async InsertToken(transection, transectionDate) {
+    try {
+      const token = jwt.sign(
+        {
+          transection: transection,
+        },
+        process.env.TOKEN_APPROVE
+      );
+
+      const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
+      const insert = await pool
+        .request()
+        .input("token", sql.NVarChar, token)
+        .input("transection", sql.NVarChar, transection)
+        .input("tranDate", sql.DateTime, transectionDate)
+        .query(
+          `INSERT INTO [dbo].[tbl_token_approve] ([token],[req_transection],[tran_date]) VALUES (@token,@transection,@tranDate)`
+        );
+      if (insert && insert.rowsAffected[0] > 0) {
+        return { err: false, msg: "token inserted" };
+      } else {
+        return { err: true, msg: "token insert failed" };
+      }
+    } catch (err) {
+      console.log(err);
+    }
+  }
+
+  
 }
 
 module.exports = Utils;
