@@ -1869,5 +1869,110 @@ class AdhesiveController {
       
     }
   }
+
+  async GetStatusApprove(req,res) {
+    try{
+      const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
+      const results = await pool.request()
+      .query(`SELECT  * FROM [dbo].[tbl_crequestsupply] WHERE tran_no = 'RQ2410010004' AND approved = 'Y'`);
+      if(results && results.recordset?.length > 0){
+        return res.json({
+          err:false,
+          msg:"Approved",
+          status : "Ok"
+        })
+      }else{
+        return res.json({
+          err:true,
+          msg:"Waiting approve"
+        })
+      }
+
+
+    }catch(err) {
+      return res.json({
+        err:true,
+        msg:err.message
+      })
+    }
+    }
+
+    async GetAllRequestByStatus(req,res) {
+    
+      
+      const {status} = req.params ;
+      try{
+        const stmt_wait = `SELECT tran_no,approved,approved_at,COUNT(*) as items,factory,plan_date FROM [dbo].[tbl_crequestsupply] WHERE approved IS NULL GROUP BY tran_no,approved,approved_at,factory,plan_date ORDER BY tran_no DESC`;
+        const stmt_not = `SELECT tran_no,approved,approved_at,COUNT(*) as items,factory,plan_date FROM [dbo].[tbl_crequestsupply] WHERE approved = 'N' GROUP BY tran_no,approved,approved_at,factory,plan_date ORDER BY tran_no DESC`;
+        const stmt_approve = `SELECT tran_no,approved,approved_at,COUNT(*) as items,factory,plan_date FROM [dbo].[tbl_crequestsupply] WHERE approved = 'Y' GROUP BY tran_no,approved,approved_at,factory,plan_date ORDER BY tran_no DESC`;
+        const stmt_all = `SELECT tran_no,approved,approved_at,COUNT(*) as items,factory,plan_date FROM [dbo].[tbl_crequestsupply]  GROUP BY tran_no,approved,approved_at,factory,plan_date ORDER BY tran_no DESC`;
+        
+        const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
+        const results = await pool.request()
+        .query(status == "wait" ? stmt_wait : status == "not" ? stmt_not : status == "approve" ? stmt_approve : stmt_all);
+        if(results && results.recordset?.length > 0){
+          return res.json({
+            err:false,
+            results:results.recordset,
+            status : "Ok"
+          })
+        }else{
+          return res.json({
+            err:true,
+            results: [],
+            msg:"Not Found"
+          })
+        }
+  
+  
+      }catch(err) {
+        return res.json({
+          err:true,
+          msg:err.message
+        })
+      }
+      }
+    async ApproveMetalRequest(req,res) {
+    
+      const {fullName,approve} = req.body ;
+      const {tranNo} = req.params ;
+
+      if(!fullName || !approve) {
+        return res.json({
+          err:true,
+          msg:"Body is required!"
+        })
+      }
+
+      try{
+        console.log(req.body);
+        
+        const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
+        const results = await pool
+        .request()
+        .input("tranNo",sql.NVarChar,tranNo)
+        .input("approve",sql.NVarChar,approve)
+        .query(`UPDATE [tbl_crequestsupply] SET [approved] = @approve WHERE [tran_no] = @tranNo`);
+        if(results && results.rowsAffected[0] > 0){
+          return res.json({
+            err:false,
+            msg:"Approved",
+            status : "Ok"
+          })
+        }else{
+          return res.json({
+            err:true,
+            msg:"Something went wrong!"
+          })
+        }
+  
+  
+      }catch(err) {
+        return res.json({
+          err:true,
+          msg:err.message
+        })
+      }
+      }
 }
 module.exports = AdhesiveController;

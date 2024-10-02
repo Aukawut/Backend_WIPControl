@@ -29,8 +29,11 @@ const sqlConfig = {
     pool: {
       max: 10,
       min: 0,
-      idleTimeoutMillis: 30000
-    }
+      idleTimeoutMillis: 30000,
+      acquireTimeoutMillis:60000
+      
+    },
+    requestTimeout:60000 
   }
 
   const sqlConfigApp09 = {

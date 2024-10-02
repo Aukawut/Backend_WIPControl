@@ -155,7 +155,11 @@ app.get("/metal/request/waitingClose",adhesive.SeachRequestMetalWaitClose)
 app.get("/metal/request/lot",adhesive.SeachRequestMetalAllLot)
 app.get("/metal/lotDetail/:lotNo/:tranNo",adhesive.SearchLotDetailByTranNo)
 app.get("/metal/supply/requestDetail/:tranNo",adhesive.SearchSupplyDetailByTranNo)
-app.post("/supply/metal",adhesive.SupplyMetal)
+app.post("/supply/metal",adhesive.SupplyMetal);
+app.get("/request/supply/status/:reqNo",adhesive.GetStatusApprove);
+app.get("/requests/metal/:status",adhesive.GetAllRequestByStatus);
+app.put("/approve/requestMetal/:tranNo",adhesive.ApproveMetalRequest)
+
 
 //<------ Production ------>
 app.get("/production/transfer/:start/:end",prodution.GetProdTrnByDate);
@@ -249,6 +253,7 @@ app.get("/summary/adhesive/actual/:start/:end",summary.SummaryActualAdhesive);
 //<------ BomController ------>
 app.get("/bom",bom.GetAllBom);
 app.get("/bom/partMaster",bom.GetPartBomMaster);
+app.post("/bom",bom.AddBom)
 
 //<------- Auth --------->
 app.post("/login/domain",auth.DomainLogin);

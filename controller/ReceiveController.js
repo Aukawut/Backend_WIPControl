@@ -17,7 +17,7 @@ class ReceiveController {
       const results = await pool
         .request()
         .query(
-          `SELECT TOP 1 tran_no from tbl_creceive WHERE tran_no  like '%${prefix}${dateNow}%' ORDER BY tran_no DESC`
+          `SELECT TOP 1 tran_no from tbl_creceive WHERE tran_no like '${prefix}${dateNow}%' ORDER BY tran_no DESC`
         );
       if (results && results?.recordset?.length > 0) {
         const tran = results?.recordset[0].tran_no;

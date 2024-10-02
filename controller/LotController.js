@@ -543,6 +543,7 @@ class LotController {
         return res.json({
           err: true,
           results: [],
+          msg:"Not Found"
         });
       }
     } catch (err) {
