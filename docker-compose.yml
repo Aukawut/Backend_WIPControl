@@ -1,0 +1,44 @@
+services:
+  api_wip_control:
+    image: api_wip_control
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    volumes:
+      - wip-control-upload:/usr/src/app/upload
+      - /home/administrator/Desktop/Storage/WipControl/upload
+    environment:
+      NODE_ENV: production
+      PORT: 5600
+      DB_USER: pd-wipcontrol
+      DB_PWD: P@ssw0rd@2567**
+      DB_NAME: PRD_WIPCONTROL
+      DB_SERVER: PSTH-SRRYAPP04 #DB_SERVER
+      JWT_SECRET: $psthdeveloperteam@@
+      LDAP_URL: ldap://10.144.1.6
+      DOMAIN_NAME: PSTH.COM
+      TOKEN_APPROVE: $wipcontrolpsthsystem@@
+
+      DB_NAME_APP02: DB_AVP2WIPCONTROL
+      DB_SERVER_APP02: SRRYAPP02
+      DB_USER_APP02: sa
+      DB_PWD_APP02: p$$th@2567
+
+      DB_NAME_APP09: DCS_IM
+      DB_SERVER_APP09: bsncrapp09
+      DB_USER_APP09: dcs_im
+      DB_PWD_APP09: dcsw0rd
+    restart: always
+
+  nginxWipControl:
+    image: nginx:latest
+    volumes:
+      - ./conf.d:/etc/nginx/conf.d
+    depends_on:
+      - api_wip_control
+    ports:
+      - 5600:5600
+    restart: always
+volumes:
+  wip-control-upload:
+    driver: local
