@@ -298,6 +298,8 @@ class ReceiveController {
 
 
               }else{
+                console.log("Insert");
+                
                 // Insert
                await pool
                 .request()

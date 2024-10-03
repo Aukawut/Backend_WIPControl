@@ -426,7 +426,7 @@ IT Developer - Thank you 😊`;
     try {
       // tags == Array
 
-      const pool = await new sql.ConnectionPool(sqlConfig).connect();
+      const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
       let inserted = 0;
       //  const dateNow = moment(new Date()).utc().format("YYYY-MM-DD HH:MM");
 
@@ -452,7 +452,7 @@ IT Developer - Thank you 😊`;
             await QRCode.toBuffer(tags[i].tagNo, { type: "png" })
           )
           .input("status_rev_tag", sql.NVarChar, "N")
-          .query(`INSERT INTO [SRRYAPP02].[DB_AVP2WIPCONTROL].[dbo].[tbl_clotcontroldt]
+          .query(`INSERT INTO [dbo].[tbl_clotcontroldt]
         (tran_no,tran_date,lot_no,partno,tagno,itemtag,qty_box,box_total,status,create_by,create_date,tag_qrcode,status_rev_tag)
         VALUES (@tran_no,@tran_date,@lot_no,@partno,@tagno,@itemtag,@qty_box,@box_total,@status,@create_by,GETDATE(),@tag_qrcode,@status_rev_tag)
         `);

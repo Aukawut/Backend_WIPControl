@@ -302,5 +302,33 @@ class AuthController {
       });
     }
   }
+
+  authenticateJWT = (req, res) => {
+    const authHeader = req.headers.authorization;
+   
+    if (authHeader) {
+      const token = authHeader.split(" ")[1]; // Split the header and extract the token
+      if (token) {
+        jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+          if (err) {
+            return res.status(403).json({ err: true, msg: err.message });
+          }
+
+          return res.status(200).json({
+            err: false,
+            msg: "Token corrected!",
+            user: decoded,
+          });
+
+        });
+      } else {
+        res.status(401).json({ err: true, msg: "Bearer token is required." });
+      }
+    } else {
+      res
+        .status(401)
+        .json({ err: true, msg: "Authorization header is missing." });
+    }
+  };
 }
 module.exports = AuthController;

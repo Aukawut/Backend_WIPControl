@@ -180,6 +180,44 @@ class PlanController {
       });
     }
   }
+
+  async GetPlanByRawMaterial(req,res) {
+    const { factory,start,end} = req.params ;
+
+    try{
+      const pool = await new sql.ConnectionPool(sqlConfig).connect()
+      const results = await pool
+      .request()
+      .input('factory',sql.NVarChar,factory)
+      .query(`SELECT p.Id,p.MC_GROUP,p.MC,p.CUSTOMER_CODE,p.COMPOUND,p.PACK,p.PART_NO,b.RM_PARTNO,p.PLAN_DATE,p.QTY FROM [dbo].[TBL_BOMS] b LEFT JOIN  [dbo].[TBL_MOLDING_PLAN] p ON 
+      b.FG_PARTNO COLLATE Thai_CI_AI = p.PART_NO COLLATE Thai_CI_AI WHERE
+      p.FACTORY = @factory AND b.FG_PARTNO IS NOT NULL AND p.PART_NO IS NOT NULL
+      AND p.PLAN_DATE BETWEEN '${start}' AND '${end}'
+      ORDER BY p.PART_NO,p.PLAN_DATE DESC`);
+
+      
+      if(results && results.recordset?.length > 0){
+        pool.close()
+        return res.json({
+          err:false,
+          results:results.recordset,
+          status : "Ok"
+        })
+      }else{
+        pool.close()
+        return res.json({
+          err:true,
+          msg:"Not Found"
+        })
+      }
+    }catch(err) {
+      console.log(err);
+      return res.json({
+        err:true,
+        msg:err.message
+      })
+    }
+  }
 }
 
 module.exports = PlanController;

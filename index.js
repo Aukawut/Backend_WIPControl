@@ -111,11 +111,12 @@ app.get("/stock/lot/aboutexpire/:day", stock.GetLotAboutToExpire);
 app.get("/wip/all", wip.GetAllProdWip);
 app.get("/wip/summary/:factory/:by", wip.WipSummary);
 
-//<------ Adhesive Plan -------->
+//<------ Plan -------->
 app.get("/plan/adhesive", plan.GetAllAdhesivePlan);
 app.get("/plan/adhesive/plateDate/:date", plan.GetAdhesivePlanByPlateDate);
 app.get("/plan/adhesive/:start/:end", plan.GetAdhesivePlanByDuration);
 app.post("/plan/adhesive",upload.single("file"), plan.SaveAdhesivePlan);
+app.get("/plan/rawmaterial/:factory/:start/:end",plan.GetPlanByRawMaterial)
 
 
 //<------ Adhesive Controller -------> 
@@ -158,7 +159,9 @@ app.get("/metal/supply/requestDetail/:tranNo",adhesive.SearchSupplyDetailByTranN
 app.post("/supply/metal",adhesive.SupplyMetal);
 app.get("/request/supply/status/:reqNo",adhesive.GetStatusApprove);
 app.get("/requests/metal/:status",adhesive.GetAllRequestByStatus);
-app.put("/approve/requestMetal/:tranNo",adhesive.ApproveMetalRequest)
+app.put("/approve/requestMetal/:tranNo",adhesive.ApproveMetalRequest);
+app.get("/supply/detail/:tranNo",adhesive.GetSupplyDetailByTrans);
+app.get("/request/detail/:tranNo",adhesive.GetMetalRequestDetail);
 
 
 //<------ Production ------>
@@ -177,8 +180,9 @@ app.post("/production/add/plan",prodution.AddPlan)
 app.delete("/production/delete/plan/:id",prodution.DeletePlan)
 app.get("/production/actual/:start/:end/:factory",prodution.GetFgActualByFactory)
 app.post("/production/fg/save",prodution.SaveFg)
-app.put("/production/fg/update/:id",prodution.UpdateFgPrd)
-app.delete("/production/fg/delete/:id",prodution.DeleteFg)
+app.put("/production/fg/update/:id",prodution.UpdateFgPrd);
+app.delete("/production/fg/delete/:id",prodution.DeleteFg);
+
  
 // <--------- Lot Controller -------->
 app.post("/lotcontrol/add",lotControl.SaveLot)
@@ -254,11 +258,14 @@ app.get("/summary/adhesive/actual/:start/:end",summary.SummaryActualAdhesive);
 app.get("/bom",bom.GetAllBom);
 app.get("/bom/partMaster",bom.GetPartBomMaster);
 app.post("/bom",bom.AddBom)
+app.delete("/bom/:fgPart",bom.DeleteBom)
+app.put("/bom/:fgPartNo",bom.UpdateBom)
 
 //<------- Auth --------->
 app.post("/login/domain",auth.DomainLogin);
 app.post("/login/employeeCode",auth.LoginByEmployeeCode);
 app.get("/auth/token/approve/metal/:reqNo",auth.AuthApproveReqMetal);
+app.get("/auth/token",auth.authenticateJWT);
 
 app.listen(PORT, () => {
   console.log(`Server is running on port : ${PORT}`);

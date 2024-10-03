@@ -1535,7 +1535,7 @@ class AdhesiveController {
       const dateNow = moment(new Date()).format("YYYY-MM-DD");
       let inserted = 0;
 
-      if (!fullName || items?.length == 0) {
+      if (!fullName || items?.length == 0 || !planDate || !factory || !transecNo ) {
         return res.json({
           err: true,
           msg: "Data is required!",
@@ -1595,15 +1595,21 @@ class AdhesiveController {
                 supply?.recordset?.length > 0
                   ? Number(supply?.recordset[0]?.SumSupplyQty)
                   : 0;
-
+              console.log("เบิกแล้ว = ",supplyQty);
+                  
               const stdBox = Number(items[i].pcsBox);
               const qtyPlan = Number(checkPlan?.recordset[0].SumQtyPlan);
               const boxOdd = qtyPlan % stdBox;
-
+              console.log("กล่องเศษ",boxOdd);
+              
               if (Number(boxOdd) > 0) {
                 limit =
                   Number(qtyPlan) - Number(boxOdd) + Number(stdBox) - supplyQty;
+              }else{
+                limit = Number(qtyPlan) - supplyQty
               }
+              console.log("limit");
+              
               if (Number(items[i].qty) > limit) {
                 limitError.push({
                   partNo: items[i].partNo,
@@ -1667,8 +1673,8 @@ class AdhesiveController {
                   await QRCode.toBuffer(transecNo, { type: "png" })
                 )
                 .input("remark", sql.NVarChar, remark)
-                .query(`insert into tbl_crequestsupply (tran_no,tran_date,items,factory,user_supply,lot_no,partno,qty_supply,box_total,pcs_box, roller_no,roller_detail,status,status_finish,create_by,create_date,tag_qrcode_rq,remark
-              values (@tranNo,@tranDate,@items,@factory,@fullName,@lotNo,@partNo,@qty,@boxTotal,@pcsBox,@rollerNo,'','USE','N',@fullName,convert(varchar(16),Getdate(),120),@qrCode,@remark
+                .query(`insert into tbl_crequestsupply (tran_no,tran_date,items,factory,user_supply,lot_no,partno,qty_supply,box_total,pcs_box, roller_no,roller_detail,status,status_finish,create_by,create_date,tag_qrcode_rq,plan_date)
+              values (@tranNo,@tranDate,@items,@factory,@fullName,@lotNo,@partNo,@qty,@boxTotal,@pcsBox,@rollerNo,'','USE','N',@fullName,convert(varchar(16),Getdate(),120),@qrCode,'${planDate}')
               `);
               if (insert && insert.rowsAffected[0] > 0) {
                 // บันทึกสำเร็จ
@@ -1679,7 +1685,7 @@ class AdhesiveController {
                 .request()
                 .input("partNo", sql.NVarChar, items[j].partNo)
                 .query(`select partno,status_finish,sum(qty_supply) as qtytotal from tbl_crequestsupply
-                    where partno = @partNo and status = 'USE' AND and status_finish = 'N'
+                    where partno = @partNo and status = 'USE' and status_finish = 'N'
                     group by partno,status_finish`);
               if (resultsPart && resultsPart.recordset?.length > 0) {
                 sumRequest = Number(resultsPart.recordset[0]?.qtytotal);
@@ -1739,10 +1745,21 @@ class AdhesiveController {
       const dateNow = moment(new Date()).format("YYYY-MM-DD");
 
       const { tags,reqNo,tranNo,factory,userSupply,fullName,clearExpire } = req.body ;
+
+      if(!factory || tags?.length == 0 || !tranNo || !userSupply || !fullName || !clearExpire){
+        return res.json({
+          err:true,
+          msg:"Data is required!"
+        })
+      }
+
+      
       let requestNo = '';
 
       if(!reqNo){
         requestNo = ''
+      }else{
+        requestNo = reqNo;
       }
         console.log(req.body);
 
@@ -1825,7 +1842,7 @@ class AdhesiveController {
                 let qtySum = Number(stmtSelect?.recordset[0].sumqty);
 
                 let sqlReq = "update tbl_crequestsupply" ;
-                sqlReq += " set supply_ok = " + qtyrq + Number(tags[i].qty_box)
+                sqlReq += " set supply_ok = " + (Number(qtySum) + Number(tags[i].qty_box))
                 
                 //ถ้าจำนวนที่ Supply ครบ
                 if(qtyrq == (qtySum + Number(tags[i].qty_box))){
@@ -1871,10 +1888,11 @@ class AdhesiveController {
   }
 
   async GetStatusApprove(req,res) {
+    const {reqNo} = req.params ;
     try{
       const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
       const results = await pool.request()
-      .query(`SELECT  * FROM [dbo].[tbl_crequestsupply] WHERE tran_no = 'RQ2410010004' AND approved = 'Y'`);
+      .query(`SELECT  * FROM [dbo].[tbl_crequestsupply] WHERE tran_no = '${reqNo}' AND approved = 'Y'`);
       if(results && results.recordset?.length > 0){
         return res.json({
           err:false,
@@ -1973,6 +1991,67 @@ class AdhesiveController {
           msg:err.message
         })
       }
+      }
+
+
+      async GetSupplyDetailByTrans(req,res) {
+          try{
+            const{tranNo} = req.params ;
+            const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
+            const results = await pool
+            .request()
+            .input("tranNo",sql.NVarChar,tranNo)
+            .query(`SELECT  * FROM tbl_csupply WHERE tran_no = @tranNo`);
+            if(results && results?.recordset?.length > 0){
+              return res.json({
+                err:false,
+                status:"Ok",
+                results:results.recordset
+              })
+            }else{
+              return res.json({
+                err:true,
+                msg:"Not Found",
+                results:[]
+              })
+            }
+
+          }catch(err) {
+            return res.json({
+              err:true,
+              msg:err.message
+            })
+          }
+      }
+      
+      async GetMetalRequestDetail(req,res) {
+          try{
+            const{tranNo} = req.params ;
+            const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
+            const results = await pool
+            .request()
+            .input("tranNo",sql.NVarChar,tranNo)
+            .query(`SELECT * FROM [dbo].[tbl_crequestsupply] WHERE tran_no = @tranNo`);
+            if(results && results?.recordset?.length > 0){
+              return res.json({
+                err:false,
+                status:"Ok",
+                results:results.recordset
+              })
+            }else{
+              return res.json({
+                err:true,
+                msg:"Not Found",
+                results:[]
+              })
+            }
+
+          }catch(err) {
+            return res.json({
+              err:true,
+              msg:err.message
+            })
+          }
       }
 }
 module.exports = AdhesiveController;
