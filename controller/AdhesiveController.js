@@ -1530,11 +1530,11 @@ class AdhesiveController {
     try {
       const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
       const poolApp04 = await new sql.ConnectionPool(sqlConfig).connect();
-      const { transecNo, items, fullName, planDate, factory, remark } =
-        req.body;
+      const { transecNo, items, fullName, planDate, factory, remark } = req.body;
       const dateNow = moment(new Date()).format("YYYY-MM-DD");
       let inserted = 0;
-
+      
+    
       if (
         !fullName ||
         items?.length == 0 ||
@@ -1604,18 +1604,23 @@ class AdhesiveController {
               console.log("เบิกแล้ว = ", supplyQty);
 
               const stdBox = Number(items[i].pcsBox);
-              const qtyPlan = Number(checkPlan?.recordset[0].SumQtyPlan);
+              let qtyPlan = Number(checkPlan?.recordset[0].SumQtyPlan);
               const boxOdd = qtyPlan % stdBox;
               console.log("กล่องเศษ", boxOdd);
 
               if (Number(boxOdd) > 0) {
                 limit =
-                  Number(qtyPlan) - Number(boxOdd) + Number(stdBox) - supplyQty;
+                  (Number(qtyPlan) - Number(boxOdd) + Number(stdBox) )- supplyQty;
+              
               } else {
-                limit = Number(qtyPlan) - supplyQty;
+                limit = (Number(qtyPlan) - supplyQty);
               }
-              console.log("limit");
+              if(limit % stdBox > 0){
 
+                limit += (stdBox - (limit % stdBox))
+              }       
+              console.log("limit",limit);
+              
               if (Number(items[i].qty) > limit) {
                 limitError.push({
                   partNo: items[i].partNo,
