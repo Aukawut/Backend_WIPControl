@@ -176,8 +176,7 @@ class ReceiveController {
         if (checkRoller && checkRoller.recordset?.length > 0) {
         
           if (
-            checkRoller.recordset[0].partno !== ""  &&
-            checkRoller.recordset[0].partno !== null
+            checkRoller.recordset[0].partno !== tags[0].partno
           ) {
             // ถ้า Roller ไม่ว่าง
             return res.json({

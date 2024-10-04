@@ -162,7 +162,8 @@ app.get("/requests/metal/:status",adhesive.GetAllRequestByStatus);
 app.put("/approve/requestMetal/:tranNo",adhesive.ApproveMetalRequest);
 app.get("/supply/detail/:tranNo",adhesive.GetSupplyDetailByTrans);
 app.get("/request/detail/:tranNo",adhesive.GetMetalRequestDetail);
-app.put("/cancel/supply/:tranNo",adhesive.CancelSupplyMetal)
+app.put("/cancel/supply/:tranNo",adhesive.CancelSupplyMetal);
+app.get("/roller/checkPart/:partNo",adhesive.CheckRollerUsedByPart)
 
 
 //<------ Production ------>

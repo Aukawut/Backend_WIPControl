@@ -2160,5 +2160,35 @@ class AdhesiveController {
       });
     }
   }
+
+  async CheckRollerUsedByPart(req,res) {
+    try{
+      const{partNo} = req.params ;
+      const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
+      const result = await pool
+      .request()
+      .input("partNo",sql.NVarChar,partNo)
+      .query(`SELECT distinct roller_no,roller_detail,partno  from tbl_cstockdetail WHERE partno = @partNo and status_supply = 'N'`)
+    
+      if(result && result.recordset?.length > 0) {
+        return res.json({
+          err:false,
+          status:"Ok",
+          results:result.recordset
+        })
+      }else{
+        return res.json({
+          err:true,
+          status:"Not Found",
+          results:[]
+        })
+      }
+    }catch (err) {
+      return res.json({
+        err: true,
+        msg: err.message,
+      });
+    }
+  }
 }
 module.exports = AdhesiveController;
