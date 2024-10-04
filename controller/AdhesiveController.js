@@ -1535,7 +1535,13 @@ class AdhesiveController {
       const dateNow = moment(new Date()).format("YYYY-MM-DD");
       let inserted = 0;
 
-      if (!fullName || items?.length == 0 || !planDate || !factory || !transecNo ) {
+      if (
+        !fullName ||
+        items?.length == 0 ||
+        !planDate ||
+        !factory ||
+        !transecNo
+      ) {
         return res.json({
           err: true,
           msg: "Data is required!",
@@ -1595,21 +1601,21 @@ class AdhesiveController {
                 supply?.recordset?.length > 0
                   ? Number(supply?.recordset[0]?.SumSupplyQty)
                   : 0;
-              console.log("เบิกแล้ว = ",supplyQty);
-                  
+              console.log("เบิกแล้ว = ", supplyQty);
+
               const stdBox = Number(items[i].pcsBox);
               const qtyPlan = Number(checkPlan?.recordset[0].SumQtyPlan);
               const boxOdd = qtyPlan % stdBox;
-              console.log("กล่องเศษ",boxOdd);
-              
+              console.log("กล่องเศษ", boxOdd);
+
               if (Number(boxOdd) > 0) {
                 limit =
                   Number(qtyPlan) - Number(boxOdd) + Number(stdBox) - supplyQty;
-              }else{
-                limit = Number(qtyPlan) - supplyQty
+              } else {
+                limit = Number(qtyPlan) - supplyQty;
               }
               console.log("limit");
-              
+
               if (Number(items[i].qty) > limit) {
                 limitError.push({
                   partNo: items[i].partNo,
@@ -1739,42 +1745,54 @@ class AdhesiveController {
     }
   }
 
-  async SupplyMetal(req,res) {
-    try{
+  async SupplyMetal(req, res) {
+    try {
       const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
       const dateNow = moment(new Date()).format("YYYY-MM-DD");
 
-      const { tags,reqNo,tranNo,factory,userSupply,fullName,clearExpire } = req.body ;
+      const {
+        tags,
+        reqNo,
+        tranNo,
+        factory,
+        userSupply,
+        fullName,
+        clearExpire,
+      } = req.body;
 
-      if(!factory || tags?.length == 0 || !tranNo || !userSupply || !fullName || !clearExpire){
+      if (
+        !factory ||
+        tags?.length == 0 ||
+        !tranNo ||
+        !userSupply ||
+        !fullName ||
+        !clearExpire
+      ) {
         return res.json({
-          err:true,
-          msg:"Data is required!"
-        })
+          err: true,
+          msg: "Data is required!",
+        });
       }
 
-      
-      let requestNo = '';
+      let requestNo = "";
 
-      if(!reqNo){
-        requestNo = ''
-      }else{
+      if (!reqNo) {
+        requestNo = "";
+      } else {
         requestNo = reqNo;
       }
-        console.log(req.body);
+      console.log(req.body);
 
-      if(tags?.length > 0) {
-        
+      if (tags?.length > 0) {
         // <--- Start Loop ---->
         for (let i = 0; i < tags?.length; i++) {
-
           // insert to tbl_csupply ;
           let stmtInsert = `INSERT INTO [dbo].[tbl_csupply] (tran_no,tran_date,items,item_no,tran_rev,lot_no,partno,mach_name,tagno,itemtag,
            fac_supply,user_supply,qty_box,roller_no,roller_detail,status,create_by,create_date,supply_code,system_machine)
            VALUES (@tranNo,@tranDate,@items,@itemNo,@tranRev,@lotNo,@partNo,@machineName,@tagNo,
            @itemTag,@facSupply,@userSupply,@qtyBox,@rollerNo,
            @rollerDetail,@status,@createBy,convert(varchar(16),Getdate(),120),@supplyCode,'PC')`;
-          
+
           await pool
             .request()
             .input("tranNo", sql.NVarChar, tranNo)
@@ -1796,262 +1814,346 @@ class AdhesiveController {
             .input("createBy", sql.NVarChar, fullName)
             .input("supplyCode", sql.NVarChar, requestNo)
             .query(stmtInsert);
-       
-          
-            let stmtUpdateStock = "UPDATE tbl_cstockdetail";
-            stmtUpdateStock += " set status_supply = 'Y',"
 
-            if(clearExpire === "Y"){
-              stmtUpdateStock += " status_active = 'EXP',"
-            }
+          let stmtUpdateStock = "UPDATE tbl_cstockdetail";
+          stmtUpdateStock += " set status_supply = 'Y',";
 
-            stmtUpdateStock += " lastupdate_by = @fullName,"
-            stmtUpdateStock += " lastupdate_date = convert(varchar(16),Getdate(),120)"
-            stmtUpdateStock += " WHERE tagno = @tagNo AND [lot_no] = @lotNo"
+          if (clearExpire === "Y") {
+            stmtUpdateStock += " status_active = 'EXP',";
+          }
 
-            
-            await pool
+          stmtUpdateStock += " lastupdate_by = @fullName,";
+          stmtUpdateStock +=
+            " lastupdate_date = convert(varchar(16),Getdate(),120)";
+          stmtUpdateStock += " WHERE tagno = @tagNo AND [lot_no] = @lotNo";
+
+          await pool
             .request()
-            .input("tagNo",sql.NVarChar,tags[i].tagno)
-            .input("lotNo",sql.NVarChar,tags[i].lot_no)
-            .input("fullName",sql.NVarChar,fullName)
-            .query(stmtUpdateStock)
+            .input("tagNo", sql.NVarChar, tags[i].tagno)
+            .input("lotNo", sql.NVarChar, tags[i].lot_no)
+            .input("fullName", sql.NVarChar, fullName)
+            .query(stmtUpdateStock);
 
-            let stmtUpdateMetal = "UPDATE tbl_cstockmetal" ;
-            stmtUpdateMetal += " SET remain = remain - " + Number(tags[i].qty_box) + ",";
-            stmtUpdateMetal += " supply = supply + " + Number(tags[i].qty_box) + ",";
-            stmtUpdateMetal += " lastupdate_by = @fullName" + ","
-            stmtUpdateMetal += " lastupdate_date = convert(varchar(16),Getdate(),120) "
-            stmtUpdateMetal += " where partno = @partNo AND [roller_no] = @rollerNo"
-            
-            await pool.request()
-            .input("fullName",sql.NVarChar,fullName)
-            .input("partNo",sql.NVarChar,tags[i].partno)
-            .input("rollerNo",sql.NVarChar,tags[i].roller_no)
-            .query(stmtUpdateMetal)
-         
-            
-            const stmtSelect = await pool.request()
-            .input("partNo",sql.NVarChar,tags[i].partno)
-            .input("factory",sql.NVarChar,factory)
+          let stmtUpdateMetal = "UPDATE tbl_cstockmetal";
+          stmtUpdateMetal +=
+            " SET remain = remain - " + Number(tags[i].qty_box) + ",";
+          stmtUpdateMetal +=
+            " supply = supply + " + Number(tags[i].qty_box) + ",";
+          stmtUpdateMetal += " lastupdate_by = @fullName" + ",";
+          stmtUpdateMetal +=
+            " lastupdate_date = convert(varchar(16),Getdate(),120) ";
+          stmtUpdateMetal +=
+            " where partno = @partNo AND [roller_no] = @rollerNo";
+
+          await pool
+            .request()
+            .input("fullName", sql.NVarChar, fullName)
+            .input("partNo", sql.NVarChar, tags[i].partno)
+            .input("rollerNo", sql.NVarChar, tags[i].roller_no)
+            .query(stmtUpdateMetal);
+
+          const stmtSelect = await pool
+            .request()
+            .input("partNo", sql.NVarChar, tags[i].partno)
+            .input("factory", sql.NVarChar, factory)
             .query(`select tran_no,partno,qty_supply,sum(supply_ok) as sumqty  from tbl_crequestsupply 
               where partno = @partNo and tran_no = '${requestNo}' and [factory] = @factory group by tran_no,partno,qty_supply
               `);
-              if(stmtSelect && stmtSelect.recordset?.length > 0){
-                let qtyrq = Number(stmtSelect?.recordset[0].qty_supply);
-                let qtySum = Number(stmtSelect?.recordset[0].sumqty);
+          if (stmtSelect && stmtSelect.recordset?.length > 0) {
+            let qtyrq = Number(stmtSelect?.recordset[0].qty_supply);
+            let qtySum = Number(stmtSelect?.recordset[0].sumqty);
 
-                let sqlReq = "update tbl_crequestsupply" ;
-                sqlReq += " set supply_ok = " + (Number(qtySum) + Number(tags[i].qty_box))
-                
-                //ถ้าจำนวนที่ Supply ครบ
-                if(qtyrq == (qtySum + Number(tags[i].qty_box))){
-                  sqlReq += `, [status_finish] = 'Y'`
-                }
-                sqlReq += ` WHERE [tran_no] = @tranNo AND [partno] = @partNo`
-            
-                  await pool
-                  .request()
-                  .input("tranNo",sql.NVarChar,requestNo)
-                  .input("partNo",sql.NVarChar,tags[i].partno)
-                  .query(sqlReq)
-                console.log(sqlReq);
-                
-              }
+            let sqlReq = "update tbl_crequestsupply";
+            sqlReq +=
+              " set supply_ok = " + (Number(qtySum) + Number(tags[i].qty_box));
 
+            //ถ้าจำนวนที่ Supply ครบ
+            if (qtyrq == qtySum + Number(tags[i].qty_box)) {
+              sqlReq += `, [status_finish] = 'Y'`;
+            }
+            sqlReq += ` WHERE [tran_no] = @tranNo AND [partno] = @partNo`;
+
+            await pool
+              .request()
+              .input("tranNo", sql.NVarChar, requestNo)
+              .input("partNo", sql.NVarChar, tags[i].partno)
+              .query(sqlReq);
+            console.log(sqlReq);
+          }
         }
-       
+
         // <--- End Loop ---->
-          
+
         return res.json({
-          err:false,
-          msg:"Supply Product Successfully!",
-          status : "Ok"
-        })
-
-    }else{
-      return res.json({
-        err:true,
-        msg:"Data is required!"
-      })
-    }
-
-
-    }catch(err) {
+          err: false,
+          msg: "Supply Product Successfully!",
+          status: "Ok",
+        });
+      } else {
+        return res.json({
+          err: true,
+          msg: "Data is required!",
+        });
+      }
+    } catch (err) {
       console.log(err);
       return res.json({
-        err:true,
-        msg:err.message
-      })
-      
+        err: true,
+        msg: err.message,
+      });
     }
   }
 
-  async GetStatusApprove(req,res) {
-    const {reqNo} = req.params ;
-    try{
+  async GetStatusApprove(req, res) {
+    const { reqNo } = req.params;
+    try {
       const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
-      const results = await pool.request()
-      .query(`SELECT  * FROM [dbo].[tbl_crequestsupply] WHERE tran_no = '${reqNo}' AND approved = 'Y'`);
-      if(results && results.recordset?.length > 0){
-        return res.json({
-          err:false,
-          msg:"Approved",
-          status : "Ok"
-        })
-      }else{
-        return res.json({
-          err:true,
-          msg:"Waiting approve"
-        })
-      }
-
-
-    }catch(err) {
-      return res.json({
-        err:true,
-        msg:err.message
-      })
-    }
-    }
-
-    async GetAllRequestByStatus(req,res) {
-    
-      
-      const {status} = req.params ;
-      try{
-        const stmt_wait = `SELECT tran_no,approved,approved_at,COUNT(*) as items,factory,plan_date FROM [dbo].[tbl_crequestsupply] WHERE approved IS NULL GROUP BY tran_no,approved,approved_at,factory,plan_date ORDER BY tran_no DESC`;
-        const stmt_not = `SELECT tran_no,approved,approved_at,COUNT(*) as items,factory,plan_date FROM [dbo].[tbl_crequestsupply] WHERE approved = 'N' GROUP BY tran_no,approved,approved_at,factory,plan_date ORDER BY tran_no DESC`;
-        const stmt_approve = `SELECT tran_no,approved,approved_at,COUNT(*) as items,factory,plan_date FROM [dbo].[tbl_crequestsupply] WHERE approved = 'Y' GROUP BY tran_no,approved,approved_at,factory,plan_date ORDER BY tran_no DESC`;
-        const stmt_all = `SELECT tran_no,approved,approved_at,COUNT(*) as items,factory,plan_date FROM [dbo].[tbl_crequestsupply]  GROUP BY tran_no,approved,approved_at,factory,plan_date ORDER BY tran_no DESC`;
-        
-        const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
-        const results = await pool.request()
-        .query(status == "wait" ? stmt_wait : status == "not" ? stmt_not : status == "approve" ? stmt_approve : stmt_all);
-        if(results && results.recordset?.length > 0){
-          return res.json({
-            err:false,
-            results:results.recordset,
-            status : "Ok"
-          })
-        }else{
-          return res.json({
-            err:true,
-            results: [],
-            msg:"Not Found"
-          })
-        }
-  
-  
-      }catch(err) {
-        return res.json({
-          err:true,
-          msg:err.message
-        })
-      }
-      }
-    async ApproveMetalRequest(req,res) {
-    
-      const {fullName,approve} = req.body ;
-      const {tranNo} = req.params ;
-
-      if(!fullName || !approve) {
-        return res.json({
-          err:true,
-          msg:"Body is required!"
-        })
-      }
-
-      try{
-        console.log(req.body);
-        
-        const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
-        const results = await pool
+      const results = await pool
         .request()
-        .input("tranNo",sql.NVarChar,tranNo)
-        .input("approve",sql.NVarChar,approve)
-        .query(`UPDATE [tbl_crequestsupply] SET [approved] = @approve WHERE [tran_no] = @tranNo`);
-        if(results && results.rowsAffected[0] > 0){
-          return res.json({
-            err:false,
-            msg:"Approved",
-            status : "Ok"
-          })
-        }else{
-          return res.json({
-            err:true,
-            msg:"Something went wrong!"
-          })
-        }
-  
-  
-      }catch(err) {
+        .query(
+          `SELECT  * FROM [dbo].[tbl_crequestsupply] WHERE tran_no = '${reqNo}' AND approved = 'Y'`
+        );
+      if (results && results.recordset?.length > 0) {
+        return res.json({
+          err: false,
+          msg: "Approved",
+          status: "Ok",
+        });
+      } else {
+        return res.json({
+          err: true,
+          msg: "Waiting approve",
+        });
+      }
+    } catch (err) {
+      return res.json({
+        err: true,
+        msg: err.message,
+      });
+    }
+  }
+
+  async GetAllRequestByStatus(req, res) {
+    const { status } = req.params;
+    try {
+      const stmt_wait = `SELECT tran_no,approved,approved_at,COUNT(*) as items,factory,plan_date FROM [dbo].[tbl_crequestsupply] WHERE approved IS NULL GROUP BY tran_no,approved,approved_at,factory,plan_date ORDER BY tran_no DESC`;
+      const stmt_not = `SELECT tran_no,approved,approved_at,COUNT(*) as items,factory,plan_date FROM [dbo].[tbl_crequestsupply] WHERE approved = 'N' GROUP BY tran_no,approved,approved_at,factory,plan_date ORDER BY tran_no DESC`;
+      const stmt_approve = `SELECT tran_no,approved,approved_at,COUNT(*) as items,factory,plan_date FROM [dbo].[tbl_crequestsupply] WHERE approved = 'Y' GROUP BY tran_no,approved,approved_at,factory,plan_date ORDER BY tran_no DESC`;
+      const stmt_all = `SELECT tran_no,approved,approved_at,COUNT(*) as items,factory,plan_date FROM [dbo].[tbl_crequestsupply]  GROUP BY tran_no,approved,approved_at,factory,plan_date ORDER BY tran_no DESC`;
+
+      const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
+      const results = await pool
+        .request()
+        .query(
+          status == "wait"
+            ? stmt_wait
+            : status == "not"
+            ? stmt_not
+            : status == "approve"
+            ? stmt_approve
+            : stmt_all
+        );
+      if (results && results.recordset?.length > 0) {
+        return res.json({
+          err: false,
+          results: results.recordset,
+          status: "Ok",
+        });
+      } else {
+        return res.json({
+          err: true,
+          results: [],
+          msg: "Not Found",
+        });
+      }
+    } catch (err) {
+      return res.json({
+        err: true,
+        msg: err.message,
+      });
+    }
+  }
+  async ApproveMetalRequest(req, res) {
+    const { fullName, approve } = req.body;
+    const { tranNo } = req.params;
+
+    if (!fullName || !approve) {
+      return res.json({
+        err: true,
+        msg: "Body is required!",
+      });
+    }
+
+    try {
+      console.log(req.body);
+
+      const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
+      const results = await pool
+        .request()
+        .input("tranNo", sql.NVarChar, tranNo)
+        .input("approve", sql.NVarChar, approve)
+        .query(
+          `UPDATE [tbl_crequestsupply] SET [approved] = @approve WHERE [tran_no] = @tranNo`
+        );
+      if (results && results.rowsAffected[0] > 0) {
+        return res.json({
+          err: false,
+          msg: "Approved",
+          status: "Ok",
+        });
+      } else {
+        return res.json({
+          err: true,
+          msg: "Something went wrong!",
+        });
+      }
+    } catch (err) {
+      return res.json({
+        err: true,
+        msg: err.message,
+      });
+    }
+  }
+
+  async GetSupplyDetailByTrans(req, res) {
+    try {
+      const { tranNo } = req.params;
+      const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
+      const results = await pool
+        .request()
+        .input("tranNo", sql.NVarChar, tranNo)
+        .query(`SELECT  * FROM tbl_csupply WHERE tran_no = @tranNo`);
+      if (results && results?.recordset?.length > 0) {
+        return res.json({
+          err: false,
+          status: "Ok",
+          results: results.recordset,
+        });
+      } else {
+        return res.json({
+          err: true,
+          msg: "Not Found",
+          results: [],
+        });
+      }
+    } catch (err) {
+      return res.json({
+        err: true,
+        msg: err.message,
+      });
+    }
+  }
+
+  async GetMetalRequestDetail(req, res) {
+    try {
+      const { tranNo } = req.params;
+      const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
+      const results = await pool
+        .request()
+        .input("tranNo", sql.NVarChar, tranNo)
+        .query(
+          `SELECT * FROM [dbo].[tbl_crequestsupply] WHERE tran_no = @tranNo`
+        );
+      if (results && results?.recordset?.length > 0) {
+        return res.json({
+          err: false,
+          status: "Ok",
+          results: results.recordset,
+        });
+      } else {
+        return res.json({
+          err: true,
+          msg: "Not Found",
+          results: [],
+        });
+      }
+    } catch (err) {
+      return res.json({
+        err: true,
+        msg: err.message,
+      });
+    }
+  }
+
+  async CancelSupplyMetal(req, res) {
+    try {
+      const {tags,fullName} = req.body ; // Array Object
+      const { tranNo } = req.params;
+      
+      let updatedStockDt = 0;
+      let updatedStockHd = 0;
+
+      if(tags?.length == 0 || !tags || !fullName) {
         return res.json({
           err:true,
-          msg:err.message
+          msg:"Data is required!"
         })
       }
-      }
-
-
-      async GetSupplyDetailByTrans(req,res) {
-          try{
-            const{tranNo} = req.params ;
-            const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
-            const results = await pool
-            .request()
-            .input("tranNo",sql.NVarChar,tranNo)
-            .query(`SELECT  * FROM tbl_csupply WHERE tran_no = @tranNo`);
-            if(results && results?.recordset?.length > 0){
-              return res.json({
-                err:false,
-                status:"Ok",
-                results:results.recordset
-              })
-            }else{
-              return res.json({
-                err:true,
-                msg:"Not Found",
-                results:[]
-              })
-            }
-
-          }catch(err) {
-            return res.json({
-              err:true,
-              msg:err.message
-            })
-          }
-      }
       
-      async GetMetalRequestDetail(req,res) {
-          try{
-            const{tranNo} = req.params ;
-            const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
-            const results = await pool
-            .request()
-            .input("tranNo",sql.NVarChar,tranNo)
-            .query(`SELECT * FROM [dbo].[tbl_crequestsupply] WHERE tran_no = @tranNo`);
-            if(results && results?.recordset?.length > 0){
-              return res.json({
-                err:false,
-                status:"Ok",
-                results:results.recordset
-              })
-            }else{
-              return res.json({
-                err:true,
-                msg:"Not Found",
-                results:[]
-              })
-            }
+      // OpenConnection
+      const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
 
-          }catch(err) {
-            return res.json({
-              err:true,
-              msg:err.message
-            })
+       // Update
+      const update = await pool
+      .request()
+      .input("tranNo",sql.NVarChar,tranNo)
+      .query(`UPDATE tbl_csupply SET status = 'CANCEL' WHERE [tran_no] = @tranNo`)
+
+     
+      if(update && update.rowsAffected[0] > 0){
+        // Start Loop
+        for (let i = 0; i < tags?.length; i++) {
+          const qty = Number(tags[i].qty_box);
+          const updateStockDetail = await pool
+            .request()
+            .input("tagNo", sql.NVarChar, tags[i].tagno)
+            .input("lotNo", sql.NVarChar, tags[i].lot_no)
+            .query(
+              `UPDATE tbl_cstockdetail SET status_supply = 'N' WHERE tagno = @tagNo AND lot_no = @lotNo`
+            );
+
+          if (updateStockDetail && updateStockDetail?.rowsAffected[0] > 0) {
+            updatedStockDt++; // Make Sure Data Updated in SQL
           }
+
+          const updateStockMetal = await pool
+            .request()
+            .input("fullName", sql.NVarChar, fullName)
+            .input("partNo", sql.NVarChar, tags[i].partno)
+            .input("rollerNo", sql.NVarChar, tags[i].roller_no)
+            .query(`UPDATE tbl_cstockmetal SET remain = remain + ${qty}, supply = supply - ${qty},[lastupdate_by] = @fullName
+            ,lastupdate_date = GETDATE() where [partno] = @partNo AND [roller_no] = @rollerNo`);
+
+          if (updateStockMetal && updateStockMetal?.rowsAffected[0] > 0) {
+            updatedStockHd++; // Make Sure Data Updated in SQL
+          }
+        }//<----- End Loop---->
+
+        // Check Tags Lenght equoa to updateStockMetal and updateStockMetal
+        if (updatedStockDt == tags?.length && updatedStockHd == tags?.length) {
+          pool.close() // Close Connection
+          return res.json({
+            err: false,
+            msg: "Canceled successfully!",
+            status: "Ok",
+          });
+        } else {
+          pool.close() // Close Connection
+          return res.json({
+            err: true,
+            msg: "Update Stock Error!",
+          });
+        }
+
+        
       }
+
+    } catch (err) {
+      return res.json({
+        err: true,
+        msg: err.message,
+      });
+    }
+  }
 }
 module.exports = AdhesiveController;
