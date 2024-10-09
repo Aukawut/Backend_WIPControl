@@ -117,6 +117,7 @@ app.get("/plan/adhesive/plateDate/:date", plan.GetAdhesivePlanByPlateDate);
 app.get("/plan/adhesive/:start/:end", plan.GetAdhesivePlanByDuration);
 app.post("/plan/adhesive",upload.single("file"), plan.SaveAdhesivePlan);
 app.get("/plan/rawmaterial/:factory/:start/:end",plan.GetPlanByRawMaterial)
+app.get("/plan/metalRequest/:factory/:start/:end/:reqOnly",plan.GetMetalRequestComparePlan)
 
 
 //<------ Adhesive Controller -------> 
@@ -129,7 +130,6 @@ app.get("/adhesive/request/metal/:reqNo",adhesive.GetMetalRequestByReqNo);
 app.get("/request/metal/:factory",adhesive.GetMetalRequestByFactory);
 app.get("/request/metal/detail/:reqNo",adhesive.GetRequestDetailByReq);
 app.put("/request/cancel/:reqNo",adhesive.CancelRequestMetal)
-app.put("/request/metal/approve/:reqNo",adhesive.ApproveRequestMetal)
 app.get("/adhesive/request/running",adhesive.GetRunningNumber)
 app.get("/adhesive/supply/running",adhesive.GetSupplyRunningNumber)
 app.get('/stock/adhesive/roller/:partNo',adhesive.GetRollerByPart);
@@ -164,6 +164,15 @@ app.get("/supply/detail/:tranNo",adhesive.GetSupplyDetailByTrans);
 app.get("/request/detail/:tranNo",adhesive.GetMetalRequestDetail);
 app.put("/cancel/supply/:tranNo",adhesive.CancelSupplyMetal);
 app.get("/roller/checkPart/:partNo",adhesive.CheckRollerUsedByPart)
+app.get("/reqMetal/detail/:tranNo",adhesive.SearchRequestDetailByTrans);
+app.get("/request/detailTag/:tagNo",adhesive.GetTagDetailByTag)
+app.get("/request/amountRequest/:partNo/:tranNo",adhesive.SearchAmountRequestByPart);
+app.get("/request/summaryRequest/:partNo/:tranNo",adhesive.SearchSumQtyRequestByPart);
+app.put("/mobile/confirm/supply/:tranNo",adhesive.SupplyMetalByReqNo);
+app.get("/check/lot/fifo/:part/:dateExp",adhesive.CheckLotFiFO);
+app.post("/save/handler/supply",adhesive.SaveSupplyByTagNo)
+
+
 
 
 //<------ Production ------>
