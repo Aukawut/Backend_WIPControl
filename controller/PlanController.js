@@ -189,11 +189,14 @@ class PlanController {
       const results = await pool
       .request()
       .input('factory',sql.NVarChar,factory)
-      .query(`SELECT p.Id,p.MC_GROUP,p.MC,p.CUSTOMER_CODE,p.COMPOUND,p.PACK,p.PART_NO,b.RM_PARTNO,p.PLAN_DATE,p.QTY FROM [dbo].[TBL_BOMS] b LEFT JOIN  [dbo].[TBL_MOLDING_PLAN] p ON 
+      .query(`WITH CTE_PLAN AS (
+      SELECT p.Id,p.MC_GROUP,p.FACTORY,p.MC,p.CUSTOMER_CODE,p.COMPOUND,p.PACK,p.PART_NO,b.RM_PARTNO,p.PLAN_DATE,p.QTY FROM [dbo].[TBL_BOMS] b LEFT JOIN  [dbo].[TBL_MOLDING_PLAN] p ON 
       b.FG_PARTNO COLLATE Thai_CI_AI = p.PART_NO COLLATE Thai_CI_AI WHERE
       p.FACTORY = @factory AND b.FG_PARTNO IS NOT NULL AND p.PART_NO IS NOT NULL
-      AND p.PLAN_DATE BETWEEN '${start}' AND '${end}'
-      ORDER BY p.PART_NO,p.PLAN_DATE DESC`);
+      AND p.PLAN_DATE BETWEEN '${start}' AND '${end}' AND p.QTY > 0 ) 
+      SELECT SUM(QTY) as QTY,RM_PARTNO,PLAN_DATE,FACTORY FROM CTE_PLAN p  
+	    GROUP BY RM_PARTNO,PLAN_DATE,FACTORY
+	    ORDER BY p.RM_PARTNO,p.PLAN_DATE DESC`);
 
       
       if(results && results.recordset?.length > 0){
@@ -218,6 +221,54 @@ class PlanController {
       })
     }
   }
+
+  async GetMetalRequestComparePlan(req,res) {
+    const { factory,start,end ,reqOnly} = req.params ;
+
+    try{
+      const pool = await new sql.ConnectionPool(sqlConfig).connect()
+      const results = await pool
+      .request()
+      .input('factory',sql.NVarChar,factory)
+      .query(`SELECT sp.*,isnull(r.qty_req,0) as QTY_REQ  FROM (
+      SELECT SUM(p.QTY) as QTY,p.RM_PARTNO,p.PLAN_DATE,p.FACTORY  FROM (
+	    SELECT p.Id,p.MC_GROUP,p.FACTORY,p.MC,p.CUSTOMER_CODE,p.COMPOUND,p.PACK,p.PART_NO,b.RM_PARTNO,p.PLAN_DATE,p.QTY FROM [dbo].[TBL_BOMS] b LEFT JOIN  [dbo].[TBL_MOLDING_PLAN] p ON 
+      b.FG_PARTNO COLLATE Thai_CI_AI = p.PART_NO COLLATE Thai_CI_AI WHERE
+      p.FACTORY = @factory AND b.FG_PARTNO IS NOT NULL AND p.PART_NO IS NOT NULL
+      AND p.PLAN_DATE BETWEEN '${start}' AND '${end}' AND p.QTY > 0 ) p
+	    GROUP BY p.RM_PARTNO,p.PLAN_DATE,p.FACTORY) sp
+	    LEFT JOIN (SELECT SUM(qty_supply) as qty_req,partno,plan_date FROM SRRYAPP02.[DB_AVP2WIPCONTROL].[dbo].[tbl_crequestsupply] 
+      WHERE plan_date BETWEEN '${start}' AND '${end}' 
+      AND factory = @factory AND status = 'USE' GROUP BY partno,plan_date) r 
+      ON sp.RM_PARTNO COLLATE Thai_CI_AS = r.partno COLLATE Thai_CI_AS AND sp.PLAN_DATE = CONVERT(varchar(10),r.plan_date,120)
+      ${reqOnly == 'Y' ? 'WHERE r.QTY_REQ > 0' : ''}
+      ORDER BY PLAN_DATE DESC`);
+
+      
+      if(results && results.recordset?.length > 0){
+        pool.close()
+        return res.json({
+          err:false,
+          results:results.recordset,
+          status : "Ok"
+        })
+      }else{
+        pool.close()
+        return res.json({
+          err:true,
+          msg:"Not Found"
+        })
+      }
+    }catch(err) {
+      console.log(err);
+      return res.json({
+        err:true,
+        msg:err.message
+      })
+    }
+  }
+
+
 }
 
 module.exports = PlanController;

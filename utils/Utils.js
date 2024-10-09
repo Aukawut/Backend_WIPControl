@@ -313,7 +313,8 @@ class Utils {
           .request()
           .input("reqNo", sql.NVarChar, reqNo)
           .query(
-            `SELECT *  FROM [dbo].[tbl_crequestsupply] WHERE tran_no = @reqNo ORDER BY items ASC`
+            `SELECT a.*,t.token  FROM [dbo].[tbl_crequestsupply] a LEFT JOIN [dbo].[tbl_token_approve] t ON a.tran_no = t.req_transection
+WHERE tran_no = @reqNo ORDER BY items ASC`
           );
         if (response && response?.recordset?.length > 0) {
           html += `<h4><b>Dear, Admin WIP Control System </b></h4>
@@ -349,7 +350,7 @@ class Utils {
     </tbody>
   </table>  
   <div>
-    Go to : <a href='http://localhost:5173/approve/request/metal/${reqNo}/${response.recordset[0].TOKEN}'>Click to Approve</a>
+    Go to : <a href='http://localhost:5173/approve/request/metal/${reqNo}/${response.recordset[0].token}'>Click to Approve</a>
   </div> 
 </div> 
 <hr />

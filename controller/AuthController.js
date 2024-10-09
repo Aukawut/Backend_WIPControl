@@ -264,7 +264,8 @@ class AuthController {
       const secret = process.env.TOKEN_APPROVE;
       const authHeader = req.headers.authorization;
       const { reqNo } = req.params;
-
+     
+      
       if (authHeader) {
         const token = authHeader.split(" ")[1];
 
@@ -273,8 +274,10 @@ class AuthController {
             if (err) {
               return res.status(401).json({ err: true, msg: err.message });
             }
-
-            if (decoded.requestNo !== reqNo) {
+          
+         
+            
+            if (decoded.transection !== reqNo) {
               return res.json({
                 err: true,
                 msg: "Token isn't correct!",
