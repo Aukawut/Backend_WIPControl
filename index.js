@@ -5,6 +5,7 @@ const cors = require("cors");
 const bodyParser = require("body-parser");
 const multer = require("multer"); 
 
+
 //<----- Storage ------>
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -74,6 +75,12 @@ const SummaryController = require("./controller/SummaryController");
 const BomController = require("./controller/BomController");
 const PackController = require("./controller/PackController");
 const CustomerController = require("./controller/CustomerController");
+const UsersController = require("./controller/UsersController");
+const FactoryController = require("./controller/FactoryController");
+const RoleController = require("./controller/RoleController");
+
+// <----- Middleware ------>
+const jwtMiddle = require("./middleware/jwtMiddleWare");
 
 //<----- Instance ----->
 const stock = new StockController();
@@ -91,6 +98,12 @@ const summary = new SummaryController() ;
 const bom = new BomController() ;
 const pack = new PackController();
 const customer = new CustomerController();
+const users = new UsersController();
+const factory = new FactoryController();
+const role = new RoleController();
+
+const jsonToken = new jwtMiddle();
+
 
 const PORT = process.env.PORT;
 
@@ -100,6 +113,21 @@ app.use(bodyParser.json({ limit: "200mb" }));
 app.use(bodyParser.urlencoded({ limit: "200mb", extended: true }));
 app.use("/public", express.static("public"));
 app.use("/private", express.static("private"));
+
+
+//<----- User------->
+app.get("/users",users.GetUsers);
+app.post("/users",jsonToken.adminAuthenticateJWT,users.AddUsers);
+app.put("/users/:empCode",jsonToken.adminAuthenticateJWT,users.UpdateUsers);
+app.delete("/users/:empCode",jsonToken.adminAuthenticateJWT,users.DeleteUser);
+
+//<------- Factory -------->
+app.get("/factory",factory.GetFactory);
+
+
+//<-------- Role --------->
+app.get("/role",role.GetAllRole)
+
 
 // <------- Stock ----------->
 app.get("/stock/all", stock.GetAllStock);
@@ -237,7 +265,10 @@ app.get("/receive/tran/detail/:tranNo",receive.GetReceiveDetailByTranNo);
 app.post("/receive",receive.ReceiveMetal)
 
 // <------- Roller Controller -------->
-app.get("/roller",roller.GetAllRoller);
+app.get("/roller",roller.GetAllRollerEmpty);
+app.get("/rollers",roller.GetAllRoller);
+app.get("/lastTran/roller",roller.GetLastTranNo);
+app.get("/lastTran/roller/:rollerName",roller.GetLastRoller);
 
 //<------- Pack Controller -------->
 app.get("/pack",pack.GetPack);
