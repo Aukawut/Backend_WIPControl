@@ -321,6 +321,7 @@ class AuthController {
             err: false,
             msg: "Token corrected!",
             user: decoded,
+            status:"Ok"
           });
 
         });

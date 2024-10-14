@@ -943,7 +943,31 @@ class ProductionController {
         .request()
         .input("factory", sql.NVarChar, factory)
         .query(
-          `SELECT * FROM [V_METALAVP2_USED] WHERE FCTYCD =  @factory AND PdDate BETWEEN '${start}' AND '${end}' ORDER BY RM_PARTNO ASC`
+          `SELECT a.*,ISNULL(b.SumSupplyQty,0) as SumSupplyQty,ISNULL(b.SumSupplyQty,0) - a.SumQtyActual as QtyDiff,ISNULL(c.SumNgQty,0) as SumNgQty FROM (
+SELECT SUM(PCKQTY) as SumQtyActual,RM_PARTNO,FCTYCD,CONVERT(VARCHAR(10), PdDate, 120) as PdDate FROM [V_METALAVP2_USED] 
+	WHERE FCTYCD =  @factory AND PdDate BETWEEN '${start}' AND '${end}'
+	GROUP BY RM_PARTNO,FCTYCD,CONVERT(VARCHAR(10), PdDate, 120) ) a
+	LEFT JOIN (
+	-- Supply Ok --
+SELECT SUM(a.supply_ok) as SumSupplyQty ,a.partno,a.factory,a.ReqDate FROM (
+	SELECT partno,supply_ok,factory,
+		CASE 
+			WHEN CONVERT(VARCHAR(5), b.create_date, 108) >= '00:00' AND CONVERT(VARCHAR(5), b.create_date, 108) <= '07:59'
+				THEN CONVERT(VARCHAR(10), DATEADD(day, -1, b.create_date), 120) 
+			ELSE 
+				CONVERT(VARCHAR(10), DATEADD(day, 0, b.create_date), 120) 
+		END AS ReqDate FROM SRRYAPP02.[DB_AVP2WIPCONTROL].[dbo].[tbl_crequestsupply] b
+WHERE status = 'USE' AND approved = 'Y' ) a WHERE a.ReqDate BETWEEN '${start}' AND '${end}' AND factory = @factory GROUP BY a.partno,a.factory,a.ReqDate) b 
+ON a.PdDate = b.ReqDate AND a.FCTYCD COLLATE Thai_CI_AS = b.factory COLLATE Thai_CI_AS AND a.RM_PARTNO COLLATE Thai_CI_AS = b.partno COLLATE Thai_CI_AS
+
+LEFT JOIN (
+	SELECT a.* ,b.RM_PARTNO FROM (
+SELECT SUM(QTY) as SumNgQty,CONVERT(VARCHAR(10),PLAN_DATE, 120) as PD_DATE ,PART_NO,FACTORY FROM [PSTH-SRRYAPP04].[PRD_WIPCONTROL].[dbo].[TBL_PRD_RECORD] WHERE STATUS_PRD = 'NG' AND 
+CONVERT(VARCHAR(10),PLAN_DATE, 120) BETWEEN '${start}' AND '${end}' AND FACTORY = @factory  GROUP BY PLAN_DATE,PART_NO,FACTORY )a
+LEFT JOIN [PSTH-SRRYAPP04].[PRD_WIPCONTROL].[dbo].[TBL_BOMS] b ON a.PART_NO = b.FG_PARTNO WHERE b.RM_PARTNO IS NOT NULL) c ON a.PdDate = c.PD_DATE AND a.FCTYCD COLLATE Thai_CI_AS = c.FACTORY COLLATE Thai_CI_AS 
+AND a.RM_PARTNO COLLATE Thai_CI_AS = c.RM_PARTNO COLLATE Thai_CI_AS
+WHERE b.SumSupplyQty != 0
+ORDER BY a.RM_PARTNO,PdDate ASC`
         );
       if (results && results?.recordset?.length > 0) {
         pool.close();
@@ -965,6 +989,140 @@ class ProductionController {
         err: true,
         msg: err.message,
       });
+    }
+  }
+  
+  async UploadNg(req,res) {
+    try{
+      const pool = await new sql.ConnectionPool(sqlConfig).connect();
+      const {dataNg,fullName,factory} = req.body;
+      if(dataNg?.length == 0 || !fullName ){
+        return res.json({
+          err:true,
+          msg:"Data is required!"
+        })
+      }
+      let process = 0;
+
+      for(let i= 0; i < dataNg?.length ; i++){
+        const partNo = dataNg[i].partNo;
+        const pack = dataNg[i].pack;
+        const prdDate = dataNg[i].pdDate;
+        const ng = dataNg[i].ng;
+        const machine = dataNg[i].machine;
+
+        const qty = Number(ng.total);
+        let remark = "";
+        if(qty > 0) {
+          if(Number(ng.ib)> 0) {
+            remark += remark !== "" ? ",ib = "+ Number(ng.ib): "ib = "+ Number(ng.ib)
+          }
+          if(Number(ng.ar)> 0) {
+            remark += remark !== "" ? ",ar = "+ Number(ng.ar) : "ar = "+Number(ng.ar)
+          }
+          if(Number(ng.ce)> 0) {
+            remark += remark !== "" ? ",ce = "+ Number(ng.ce) : "ce = "+ Number(ng.ce)
+          }
+          if(Number(ng.gb)> 0) {
+            remark += remark !== "" ? ",gb = "+ Number(ng.gb) : "gb = "+ Number(ng.gb)
+          }
+          if(Number(ng.be)> 0) {
+            remark += remark !== "" ? ",be = "+ Number(ng.be) : "be = "+ Number(ng.be)
+          }
+          if(Number(ng.ha)> 0) {
+            remark += remark !== "" ? ",ha = "+ Number(ng.ha) : "ha = "+ Number(ng.ha)
+          }
+          if(Number(ng.bf)> 0) {
+            remark += remark !== "" ? ",bf = "+ Number(ng.bf) : "bf = " + Number(ng.bf)
+          }
+          if(Number(ng.ed)> 0) {
+            remark += remark !== "" ? ",ed = " + Number(ng.ed) : "ed = "+ Number(ng.ed)
+          }
+          if(Number(ng.gk)> 0) {
+            remark += remark !== "" ? ",gk = "+ Number(ng.gk) : "gk = " + Number(ng.gk)
+          }
+          if(Number(ng.c)> 0) {
+            remark += remark !== "" ? ",c = " + Number(ng.c) : "c = " + Number(ng.c)
+          }
+          if(Number(ng.spc)> 0) {
+            remark += remark !== "" ? ",spc = " + Number(ng.spc) : "spc = "+ Number(ng.spc)
+          }
+          if(Number(ng.etc)> 0) {
+            remark += remark !== "" ? ",etc = " + Number(ng.etc) : "etc = "+ Number(ng.etc)
+          }
+        }
+
+
+
+        
+        const results = await pool.request()
+        .input("partNo",sql.NVarChar,partNo)
+        .input("factory",sql.NVarChar,factory)
+        .input("pack",sql.NVarChar,pack)
+        .input("mc",sql.NVarChar,machine)
+        .query(`SELECT * FROM [dbo].[TBL_PRD_RECORD] WHERE [PART_NO] = @partNo 
+          AND [FACTORY] = @factory AND [PACK] = @pack AND [PLAN_DATE] = '${prdDate}' AND [STATUS_PRD] = 'NG' AND [MACHINE] = @mc`)
+
+          if(results && results?.recordset?.length > 0) {
+            //Update
+            const tranNo = results?.recordset[0]?.TRAN_NO;
+
+            if(Number(results?.recordset[0]?.QTY) !== qty) {
+              console.log("Update");
+            await pool
+            .request()
+            .input("transNo",sql.NVarChar,tranNo)
+            .input("qty",sql.Int,qty)
+            .input("fullName",sql.NVarChar,fullName)
+            .input("status",sql.NVarChar,"NG")
+            .input("remark",sql.NVarChar,remark)
+            .query(`UPDATE [dbo].[TBL_PRD_RECORD] SET [QTY] = @qty,[UPDATED_AT] = GETDATE()
+          ,[UPDATED_BY] = @fullName,[REMARK] = @remark WHERE [TRAN_NO] = @transNo`)
+        }
+          }else{
+            //Insert
+          const getTransNo =  await utils.GetTransectionNoFgSave();
+
+          if(!getTransNo.err){
+           
+            await pool
+            .request()
+            .input("transNo",sql.NVarChar,getTransNo.lastTransec)
+            .input("partNo",sql.NVarChar,partNo)
+            .input("factory",sql.NVarChar,factory)
+            .input("pack",sql.NVarChar,pack)
+            .input("qty",sql.Int,qty)
+            .input("planDate",sql.DateTime,prdDate)
+            .input("fullName",sql.NVarChar,fullName)
+            .input("status",sql.NVarChar,"NG")
+            .input("remark",sql.NVarChar,remark)
+            .input("mc",sql.NVarChar,machine)
+            .query(`INSERT INTO [dbo].[TBL_PRD_RECORD] ([TRAN_NO],[PART_NO],[FACTORY],[PACK],[QTY],[CREATED_AT],[PLAN_DATE]
+          ,[CREATED_BY],[REMARK],[STATUS_PRD],[MACHINE]) VALUES (@transNo,@partNo,@factory,@pack,@qty,GETDATE(),@planDate,@fullName,@remark,@status,@mc)`)
+
+          }
+        }
+
+        process ++;
+      }
+
+      if(process == dataNg?.length ) {
+        pool.close()
+        return res.json({
+          err:false,
+          msg:"Success",
+          status : "Ok"
+        })
+      }
+      
+  
+    }catch(err){
+      console.log(err);
+      return res.json({
+        err:true,
+        msg:err.message
+      })
+      
     }
   }
 }

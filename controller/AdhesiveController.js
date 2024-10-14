@@ -2468,11 +2468,7 @@ class AdhesiveController {
             })
           }
 
-      // const results = await pool
-      // .request()
-      // .input("partNo",sql.NVarChar,part)
-      // .query(``);
-
+   
 
 
     }catch (err) {
@@ -2482,5 +2478,180 @@ class AdhesiveController {
       });
     }
   }
+
+  async DeleteAdhesivePlan(req,res) {
+    try{
+      const {id} = req.params ;
+      const pool = await new sql.ConnectionPool(sqlConfig).connect();
+      const deletePlan = await pool
+        .request()
+        .input("id",sql.Int,id)
+        .query(`DELETE FROM [dbo].[TBL_ADHESIVE_PLAN] WHERE [Id] = @id`);
+
+        if(deletePlan && deletePlan.rowsAffected[0] > 0) {
+          return res.json({
+            err:false,
+            msg:"Plan deleted!",
+            status : "Ok"
+          })
+        }else{
+          return res.json({
+            err:true,
+            msg:"Error, Delete plan"
+          })
+        }
+
+    }catch(err) {
+      console.log(err);
+      return res.json({
+        err: true,
+        msg: err.message,
+      });
+      
+    }
+  }
+
+  async AddAdhesivePlan(req,res) {
+    try{
+      const {partNo,phLine,glueType,qty,datePlate,fullName} = req.body ;
+      console.log(req.body);
+      
+      if(!partNo || !phLine || !glueType || !qty || !datePlate || !fullName){
+        return res.json({
+          err:true,
+          msg:"Data is required!"
+        })
+      }
+
+      const pool = await new sql.ConnectionPool(sqlConfig).connect();
+
+      const checkPlan = await pool.request()
+      .input("partNo",sql.NVarChar,partNo)
+      .input("glueType",sql.NVarChar,glueType)
+      .query(`SELECT * FROM [dbo].[TBL_ADHESIVE_PLAN] WHERE [PART_NO] = @partNo AND [GLUE_TYPE] = @glueType AND [DATE_PLATE] = '${datePlate}'`)
+
+      if(checkPlan && checkPlan?.recordset?.length > 0) {
+        pool.close();
+        return res.json({
+          err:true,
+          msg:"Plan Duplicated!"
+        })
+      }
+
+      const insert = await pool
+        .request()
+        .input("partNo",sql.NVarChar,partNo)
+        .input("phLine",sql.NVarChar,phLine)
+        .input("glueType",sql.NVarChar,glueType)
+        .input("qty",sql.Int,qty)
+        .input("datePlate",sql.Date,datePlate)
+        .input("datePlan",sql.Date,moment(datePlate).add(1,"days").format("YYYY-MM-DD"))
+        .input("fullName",sql.NVarChar,fullName)
+        .query(`INSERT INTO [dbo].[TBL_ADHESIVE_PLAN] ([PART_NO],[PH_LINE],[GLUE_TYPE],[QTY],[DATE_PLAN],[DATE_PLATE],[CREATED_AT],[CREATED_BY]) 
+          VALUES (@partNo,@phLine,@glueType,@qty,@datePlan,@datePlate,GETDATE(),@fullName)`);
+
+        if(insert && insert.rowsAffected[0] > 0) {
+          pool.close();
+          return res.json({
+            err:false,
+            msg:"Plan Added!",
+            status : "Ok"
+          })
+        }else{
+          pool.close();
+          return res.json({
+            err:true,
+            msg:"Error, Add plan"
+          })
+        }
+
+    }catch(err) {
+      console.log(err);
+      return res.json({
+        err: true,
+        msg: err.message,
+      });
+      
+    }
+  }
+
+
+  async UpdateAdhesivePlan(req,res) {
+    try{
+      const {id} = req.params;
+      const {partNo,phLine,glueType,qty,datePlate,fullName} = req.body ;
+      console.log(req.body);
+      
+      if(!partNo || !phLine || !glueType || !qty || !datePlate || !fullName){
+        return res.json({
+          err:true,
+          msg:"Data is required!"
+        })
+      }
+
+      const pool = await new sql.ConnectionPool(sqlConfig).connect();
+
+      const oldPlan = await pool.request()
+      .input("id",sql.Int,id)
+      .query(`SELECT * FROM [dbo].[TBL_ADHESIVE_PLAN] WHERE [Id] = @id`);
+
+      if(oldPlan && oldPlan?.recordset?.length > 0) {
+        
+      const checkPlan = await pool.request()
+      .input("partNo",sql.NVarChar,partNo)
+      .input("glueType",sql.NVarChar,glueType)
+      .input("id",sql.Int,id)
+      .query(`SELECT * FROM [dbo].[TBL_ADHESIVE_PLAN] WHERE [PART_NO] = @partNo 
+        AND [GLUE_TYPE] = @glueType AND [DATE_PLATE] = '${datePlate}' AND [Id] != @id
+        `)
+
+      if(checkPlan && checkPlan?.recordset?.length > 0) {
+        pool.close();
+        return res.json({
+          err:true,
+          msg:"Plan Duplicated!"
+        })
+      }
+
+      const update = await pool
+        .request()
+        .input("partNo",sql.NVarChar,partNo)
+        .input("phLine",sql.NVarChar,phLine)
+        .input("glueType",sql.NVarChar,glueType)
+        .input("qty",sql.Int,qty)
+        .input("datePlate",sql.Date,datePlate)
+        .input("datePlan",sql.Date,moment(datePlate).add(1,"days").format("YYYY-MM-DD"))
+        .input("fullName",sql.NVarChar,fullName)
+        .input("id",sql.Int,id)
+        .query(`UPDATE [dbo].[TBL_ADHESIVE_PLAN] SET [PART_NO] = @partNo,
+          [PH_LINE] = @phLine,[GLUE_TYPE] = @glueType,[QTY] = @qty,[DATE_PLAN] = @datePlan,
+          [DATE_PLATE] = @datePlate,[UPDATED_AT] = GETDATE(),[UPDATED_BY] = @fullName WHERE [Id] = @id`);
+
+        if(update && update.rowsAffected[0] > 0) {
+          pool.close();
+          return res.json({
+            err:false,
+            msg:"Plan Updated!",
+            status : "Ok"
+          })
+        }else{
+          pool.close();
+          return res.json({
+            err:true,
+            msg:"Error, Update plan"
+          })
+        }
+      }
+
+    }catch(err) {
+      console.log(err);
+      return res.json({
+        err: true,
+        msg: err.message,
+      });
+      
+    }
+  }
+
 }
 module.exports = AdhesiveController;

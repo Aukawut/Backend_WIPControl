@@ -230,7 +230,7 @@ class PlanController {
       const results = await pool
       .request()
       .input('factory',sql.NVarChar,factory)
-      .query(`SELECT sp.*,isnull(r.qty_req,0) as QTY_REQ  FROM (
+      .query(`SELECT sp.*,isnull(r.qty_req,0) as QTY_REQ,sp.QTY - isnull(r.qty_req,0) as QTY_DIFF  FROM (
       SELECT SUM(p.QTY) as QTY,p.RM_PARTNO,p.PLAN_DATE,p.FACTORY  FROM (
 	    SELECT p.Id,p.MC_GROUP,p.FACTORY,p.MC,p.CUSTOMER_CODE,p.COMPOUND,p.PACK,p.PART_NO,b.RM_PARTNO,p.PLAN_DATE,p.QTY FROM [dbo].[TBL_BOMS] b LEFT JOIN  [dbo].[TBL_MOLDING_PLAN] p ON 
       b.FG_PARTNO COLLATE Thai_CI_AI = p.PART_NO COLLATE Thai_CI_AI WHERE

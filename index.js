@@ -78,6 +78,7 @@ const CustomerController = require("./controller/CustomerController");
 const UsersController = require("./controller/UsersController");
 const FactoryController = require("./controller/FactoryController");
 const RoleController = require("./controller/RoleController");
+const GlueController = require("./controller/GlueController");
 
 // <----- Middleware ------>
 const jwtMiddle = require("./middleware/jwtMiddleWare");
@@ -101,6 +102,7 @@ const customer = new CustomerController();
 const users = new UsersController();
 const factory = new FactoryController();
 const role = new RoleController();
+const glue = new GlueController();
 
 const jsonToken = new jwtMiddle();
 
@@ -114,6 +116,9 @@ app.use(bodyParser.urlencoded({ limit: "200mb", extended: true }));
 app.use("/public", express.static("public"));
 app.use("/private", express.static("private"));
 
+
+// <----- Glue Controller ------>
+app.get("/glue",glue.GetAllGlue)
 
 //<----- User------->
 app.get("/users",users.GetUsers);
@@ -198,7 +203,10 @@ app.get("/request/amountRequest/:partNo/:tranNo",adhesive.SearchAmountRequestByP
 app.get("/request/summaryRequest/:partNo/:tranNo",adhesive.SearchSumQtyRequestByPart);
 app.put("/mobile/confirm/supply/:tranNo",adhesive.SupplyMetalByReqNo);
 app.get("/check/lot/fifo/:part/:dateExp",adhesive.CheckLotFiFO);
-app.post("/save/handler/supply",adhesive.SaveSupplyByTagNo)
+app.post("/save/handler/supply",adhesive.SaveSupplyByTagNo);
+app.delete("/plan/adhesive/delete/:id",adhesive.DeleteAdhesivePlan);
+app.post("/plan/adhesive/add",adhesive.AddAdhesivePlan);
+app.put("/plan/adhesive/update/:id",adhesive.UpdateAdhesivePlan);
 
 
 
@@ -221,6 +229,7 @@ app.get("/production/actual/:start/:end/:factory",prodution.GetFgActualByFactory
 app.post("/production/fg/save",prodution.SaveFg)
 app.put("/production/fg/update/:id",prodution.UpdateFgPrd);
 app.delete("/production/fg/delete/:id",prodution.DeleteFg);
+app.post("/production/ng/upload",prodution.UploadNg)
 
  
 // <--------- Lot Controller -------->
@@ -269,6 +278,9 @@ app.get("/roller",roller.GetAllRollerEmpty);
 app.get("/rollers",roller.GetAllRoller);
 app.get("/lastTran/roller",roller.GetLastTranNo);
 app.get("/lastTran/roller/:rollerName",roller.GetLastRoller);
+app.post("/roller",roller.InsertRoller);
+app.put("/roller/:rollerId",jsonToken.LeaderAuthenticateJWT,roller.CancelRoller);
+app.put("/roller/update/:rollerId",jsonToken.LeaderAuthenticateJWT,roller.UpdateRoller);
 
 //<------- Pack Controller -------->
 app.get("/pack",pack.GetPack);
