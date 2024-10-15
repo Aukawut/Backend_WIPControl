@@ -369,11 +369,13 @@ SELECT
         .request()
         .input("factory",sql.NVarChar,factory)
         .query(`WITH CTE_ AS (
-        SELECT a.PART_NO,a.Qty_Plan,a.PLAN_DATE,ISNULL(bb.Qty_Prd,0) as Qty_Prd,ISNULL(ng.SUM_NG,0) as SUM_NG  FROM (
-        SELECT SUM(QTY) as Qty_Plan,PART_NO,PLAN_DATE FROM [PSTH-SRRYAPP04].[PRD_WIPCONTROL].[dbo].[TBL_MOLDING_PLAN]
-        WHERE PLAN_DATE BETWEEN '${start}' AND '${end}'AND FACTORY = @factory GROUP BY PART_NO,PLAN_DATE ) a
+        SELECT a.Qty_Plan,a.PLAN_DATE,
+		ISNULL(bb.Qty_Prd,0) as Qty_Prd,
+		ISNULL(ng.SUM_NG,0) as SUM_NG  FROM (
+        SELECT SUM(QTY) as Qty_Plan,PLAN_DATE FROM [PSTH-SRRYAPP04].[PRD_WIPCONTROL].[dbo].[TBL_MOLDING_PLAN]
+        WHERE PLAN_DATE BETWEEN '${start}' AND '${end}' AND FACTORY = @factory GROUP BY PLAN_DATE ) a
         LEFT JOIN (
-        SELECT SUM(PCKQTY) as Qty_Prd,m.ITEMNO,m.PdDate FROM (
+        SELECT SUM(PCKQTY) as Qty_Prd,m.PdDate FROM (
             SELECT DISTINCT  a.* ,
             b.CRTDON,
             CASE WHEN CONVERT(VARCHAR(5),b.CRTDON, 108) >='00:00' AND CONVERT(VARCHAR(5),b.CRTDON, 108) <= '07:59'
@@ -383,15 +385,16 @@ SELECT
             FROM [dbo].[tbl_PD_DailyClosedDtl] a 
             LEFT JOIN [dbo].[tbl_PD_DailyClosedHdr] b ON a.TRNNO = b.TRNNO AND a.FCTYCD = b.FCTYCD ) m
 			
-        WHERE m.PdDate BETWEEN '${start}' AND '${end}'
+        WHERE m.PdDate BETWEEN '${start}' AND '${end}' AND m.FCTYCD = @factory
 
-        GROUP BY m.ITEMNO,m.PdDate
+        GROUP BY m.PdDate
 
-        ) bb ON a.PART_NO COLLATE Thai_CI_AS = bb.ITEMNO COLLATE Thai_CI_AS AND a.PLAN_DATE = bb.PdDate
+        ) bb ON a.PLAN_DATE = bb.PdDate
 		LEFT JOIN 
-			(SELECT SUM(QTY) as SUM_NG,CONVERT(DATE,PLAN_DATE) as PLAN_DATE,PART_NO FROM [PSTH-SRRYAPP04].[PRD_WIPCONTROL].[dbo].[TBL_PRD_RECORD]
-		WHERE [STATUS_PRD] = 'NG' AND FACTORY = @factory GROUP BY CONVERT(DATE,PLAN_DATE),PART_NO) ng 
-		ON a.PART_NO COLLATE Thai_CI_AS = ng.PART_NO COLLATE Thai_CI_AS AND a.PLAN_DATE = ng.PLAN_DATE
+			(SELECT SUM(QTY) as SUM_NG,CONVERT(DATE,PLAN_DATE) as PLAN_DATE FROM [PSTH-SRRYAPP04].[PRD_WIPCONTROL].[dbo].[TBL_PRD_RECORD]
+		WHERE [STATUS_PRD] = 'NG' AND FACTORY = @factory AND CONVERT(DATE,PLAN_DATE) BETWEEN '${start}' AND '${end}'
+		GROUP BY CONVERT(DATE,PLAN_DATE)) ng 
+		ON a.PLAN_DATE = ng.PLAN_DATE
 		)
 		
         SELECT CTE_.PLAN_DATE,SUM(CTE_.Qty_Plan) as Sum_Plan_Qty,
