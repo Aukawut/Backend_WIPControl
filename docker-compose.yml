@@ -7,6 +7,8 @@ services:
     volumes:
       - wip-control-upload:/usr/src/app/upload
       - /home/administrator/Desktop/Storage/WipControl/upload
+      - wip-control-public:/usr/src/app/public
+      - /home/administrator/Desktop/Storage/WipControl/public
     environment:
       NODE_ENV: production
       PORT: 5600
@@ -14,10 +16,10 @@ services:
       DB_PWD: P@ssw0rd@2567**
       DB_NAME: PRD_WIPCONTROL
       DB_SERVER: PSTH-SRRYAPP04 #DB_SERVER
-      JWT_SECRET: $psthdeveloperteam@@
+      JWT_SECRET: $$psthdeveloperteam@@
       LDAP_URL: ldap://10.144.1.6
       DOMAIN_NAME: PSTH.COM
-      TOKEN_APPROVE: $wipcontrolpsthsystem@@
+      TOKEN_APPROVE: $$wipcontrolpsthsystem@@
 
       DB_NAME_APP02: DB_AVP2WIPCONTROL
       DB_SERVER_APP02: SRRYAPP02
@@ -41,4 +43,6 @@ services:
     restart: always
 volumes:
   wip-control-upload:
+    driver: local
+  wip-control-public:
     driver: local
