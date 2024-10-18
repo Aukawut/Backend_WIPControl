@@ -1239,6 +1239,43 @@ class AdhesiveController {
     }
   }
 
+  async GetAllRequestMetalByFactory(req, res) {
+    try {
+      const { start, end, notFinished,factory } = req.params;
+      const stmt_all = `SELECT DISTINCT tran_no,tran_date,factory,user_supply ,status,status_finish,create_by,create_date,lastupdate_by,lastupdate_date,plan_date,approved  FROM tbl_crequestsupply 
+      WHERE tran_date between '${start}' AND '${end}' AND factory = @factory order by tran_no`;
+
+      const stmt_wait = `SELECT DISTINCT tran_no,tran_date,factory,user_supply ,status,status_finish,create_by,create_date,lastupdate_by,lastupdate_date,plan_date,approved  FROM tbl_crequestsupply 
+      WHERE tran_date between '${start}' AND '${end}' AND status_finish = 'N' AND factory = @factory order by tran_no`;
+
+      // Open Connection
+      const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
+      const result = await pool
+        .request()
+        .input("factory",sql.NVarChar,factory)
+        .query(notFinished == "Y" ? stmt_wait : stmt_all);
+      if (result && result.recordset?.length > 0) {
+        return res.json({
+          err: false,
+          status: "Ok",
+          results: result.recordset,
+        });
+      } else {
+        return res.json({
+          err: false,
+          msg: "Not Found",
+        });
+      }
+    } catch (err) {
+      console.log(err);
+      return res.json({
+        err: true,
+        msg: err.message,
+      });
+    }
+  }
+
+
   async GetAllRequestMetalByTrans(req, res) {
     try {
       const { transecNo } = req.params;

@@ -299,10 +299,12 @@ class Utils {
       const poolApp02 = await new sql.ConnectionPool(sqlConfigApp02).connect();
       const pool = await new sql.ConnectionPool(sqlConfig).connect();
       const approver = await pool.request()
-        .query(`SELECT u.*,r.NAME_ROLE ,hr.UHR_Email,hr.UHR_FullName_th,hr.UHR_FirstName_en
+        .query(`SELECT u.*,r.NAME_ROLE ,hr.Ad_Mail,hr.UHR_FullName_th,hr.UHR_FirstName_en,f.FACTORY_NAME
         FROM TBL_USERS u LEFT JOIN TBL_ROLE r ON u.ROLE = r.Id
+		LEFT JOIN TBL_FACTORY f ON u.FACTORY = f.Id
         LEFT JOIN [dbo].[V_AllUsers] hr ON u.EMP_CODE = hr.UHR_EmpCode
-        WHERE r.NAME_ROLE = 'Admin'`);
+        WHERE (r.NAME_ROLE = 'Admin' OR r.NAME_ROLE = 'Boss' OR (r.NAME_ROLE = 'Leader' AND f.FACTORY_NAME = 'AVP2' ))
+		AND (AD_Mail IS NOT NULL AND EMP_CODE NOT IN ('J22065','P240075','P240070','030415'))`);
       if (approver && approver?.recordset?.length > 0) {
         const approverList = approver.recordset;
 
@@ -350,7 +352,7 @@ WHERE tran_no = @reqNo ORDER BY items ASC`
     </tbody>
   </table>  
   <div>
-    Go to : <a href='http://localhost:5173/approve/request/metal/${reqNo}/${response.recordset[0].token}'>Click to Approve</a>
+    Go to : <a href='http://wipcontrol.psth.com/approve/request/metal/${reqNo}/${response.recordset[0].token}'>Click to Approve</a>
   </div> 
 </div> 
 <hr />
@@ -376,7 +378,7 @@ IT Developer - Thank you 😊`;
               const mail = {
                 from: "Request Metal AVP2 [Alert] <it.info-psth@prospira.com>", //from email (option)
                 // to: to, //to email (require)
-                to: approverList[j].UHR_Email,
+                to: approverList[j].Ad_Mail,
                 subject: "Notification Request Metal AVP2", // Subject line
                 html: html, //email body
               };

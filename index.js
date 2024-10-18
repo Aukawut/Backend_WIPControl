@@ -176,6 +176,7 @@ app.put("/adhesive/notgood/update/:id",adhesive.UpdateNotGoodAdhesive)
 app.delete("/adhesive/notgood/:id",adhesive.DeleteNotGoodById)
 app.put("/adhesive/stock/setup",adhesive.SetUpdateStockMetal)
 app.get("/metal/request/:start/:end/:notFinished",adhesive.GetAllRequestMetal)
+app.get("/metal/req/:factory/:start/:end/:notFinished",adhesive.GetAllRequestMetalByFactory)
 app.get("/request/metal/trans/:transecNo",adhesive.GetAllRequestMetalByTrans)
 app.put("/request/metal/cancel/:transecNo",adhesive.CancelRequestMetalByTrans);
 app.get("/tags/adhesive/:partNo",adhesive.GetStockTagNoByPart);
