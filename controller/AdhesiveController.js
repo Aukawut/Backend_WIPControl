@@ -1207,10 +1207,10 @@ class AdhesiveController {
   async GetAllRequestMetal(req, res) {
     try {
       const { start, end, notFinished } = req.params;
-      const stmt_all = `SELECT DISTINCT tran_no,tran_date,factory,user_supply ,status,status_finish,create_by,create_date,lastupdate_by,lastupdate_date,plan_date  FROM tbl_crequestsupply 
+      const stmt_all = `SELECT DISTINCT tran_no,tran_date,factory,user_supply ,status,status_finish,create_by,create_date,lastupdate_by,lastupdate_date,plan_date,approved  FROM tbl_crequestsupply 
       WHERE tran_date between '${start}' and '${end}' order by tran_no`;
 
-      const stmt_wait = `SELECT DISTINCT tran_no,tran_date,factory,user_supply ,status,status_finish,create_by,create_date,lastupdate_by,lastupdate_date,plan_date  FROM tbl_crequestsupply 
+      const stmt_wait = `SELECT DISTINCT tran_no,tran_date,factory,user_supply ,status,status_finish,create_by,create_date,lastupdate_by,lastupdate_date,plan_date,approved  FROM tbl_crequestsupply 
       WHERE tran_date between '${start}' and '${end}' AND status_finish = 'N' order by tran_no`;
 
       // Open Connection
