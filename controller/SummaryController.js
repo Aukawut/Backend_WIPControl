@@ -376,14 +376,42 @@ SELECT
         WHERE PLAN_DATE BETWEEN '${start}' AND '${end}' AND FACTORY = @factory GROUP BY PLAN_DATE ) a
         LEFT JOIN (
         SELECT SUM(PCKQTY) as Qty_Prd,m.PdDate FROM (
-            SELECT DISTINCT  a.* ,
-            b.CRTDON,
-            CASE WHEN CONVERT(VARCHAR(5),b.CRTDON, 108) >='00:00' AND CONVERT(VARCHAR(5),b.CRTDON, 108) <= '07:59'
-            THEN CONVERT(VARCHAR(10),DATEADD(day,-1,b.CRTDON),120) ELSE CONVERT(VARCHAR(10),DATEADD(day,0,b.CRTDON),120) END AS PdDate,
-            CONVERT(VARCHAR(5),b.CRTDON, 108) AS TimeOnly,
-            CONVERT(VARCHAR(10), b.CRTDON, 120) as DateOnly
-            FROM [dbo].[tbl_PD_DailyClosedDtl] a 
-            LEFT JOIN [dbo].[tbl_PD_DailyClosedHdr] b ON a.TRNNO = b.TRNNO AND a.FCTYCD = b.FCTYCD ) m
+		   SELECT mm.* 
+				FROM (
+				SELECT DISTINCT a.*, 
+			   b.CRTDON,
+			   CASE 
+				   WHEN CONVERT(VARCHAR(5), b.CRTDON, 108) >= '00:00' AND CONVERT(VARCHAR(5), b.CRTDON, 108) <= '07:59' 
+				   THEN CONVERT(VARCHAR(10), DATEADD(day, -1, b.CRTDON), 120) 
+				   ELSE CONVERT(VARCHAR(10), DATEADD(day, 0, b.CRTDON), 120) 
+			   END AS PdDate,
+			   CONVERT(VARCHAR(5), b.CRTDON, 108) AS TimeOnly,
+			   CONVERT(VARCHAR(10), b.CRTDON, 120) AS DateOnly
+				FROM [dbo].[tbl_PD_DailyClosedDtl] a 
+				LEFT JOIN [dbo].[tbl_PD_DailyClosedHdr] b 
+				ON a.TRNNO = b.TRNNO 
+				AND a.FCTYCD = b.FCTYCD 
+	) mm
+
+		UNION ALL 
+
+		SELECT pd.FACTORY COLLATE Thai_CI_AI as FCTYCD,
+			   pd.[TRAN_NO] COLLATE Thai_CI_AI as TRNNO,
+			   '' AS TRNLNO,
+			   '' AS LOTNO,
+			   pd.PART_NO COLLATE Thai_CI_AI as ITEMNO,
+			   pd.PACK COLLATE Thai_CI_AI as PACKCD,
+			   pd.[QTY] as PCKQTY,
+			   0 as TOTQTY,
+			   'PCS' as UOMCD,
+			   pd.[CREATED_AT] as CRTDON,
+			   pd.[PLAN_DATE] as PdDate,
+			   '00:00' as TimeOnly,
+			   pd.[PLAN_DATE] as DateOnly
+		FROM [PSTH-SRRYAPP04].[PRD_WIPCONTROL].[dbo].[TBL_PRD_RECORD] pd 
+		WHERE pd.[STATUS_PRD] = 'FG'
+			
+			) m
 			
         WHERE m.PdDate BETWEEN '${start}' AND '${end}' AND m.FCTYCD = @factory
 
