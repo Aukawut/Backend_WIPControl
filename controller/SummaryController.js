@@ -509,6 +509,7 @@ SELECT
         ProductionData AS (
             SELECT ISNULL(SUM(PCKQTY),0) AS Qty_Prd
             FROM (
+			SELECT mm.* FROM (
                 SELECT DISTINCT a.*, 
                                 b.CRTDON,
                                 CASE 
@@ -520,7 +521,23 @@ SELECT
                 FROM [dbo].[tbl_PD_DailyClosedDtl] a
                 LEFT JOIN [dbo].[tbl_PD_DailyClosedHdr] b 
                     ON a.TRNNO = b.TRNNO 
-                    AND a.FCTYCD = b.FCTYCD
+                    AND a.FCTYCD = b.FCTYCD ) mm 
+						UNION ALL
+					SELECT pd.FACTORY COLLATE Thai_CI_AI as FCTYCD,
+			   pd.[TRAN_NO] COLLATE Thai_CI_AI as TRNNO,
+			   '' AS TRNLNO,
+			   '' AS LOTNO,
+			   pd.PART_NO COLLATE Thai_CI_AI as ITEMNO,
+			   pd.PACK COLLATE Thai_CI_AI as PACKCD,
+			   pd.[QTY] as PCKQTY,
+			   0 as TOTQTY,
+			   'PCS' as UOMCD,
+			   pd.[CREATED_AT] as CRTDON,
+			   pd.[PLAN_DATE] as PdDate
+		FROM [PSTH-SRRYAPP04].[PRD_WIPCONTROL].[dbo].[TBL_PRD_RECORD] pd 
+		WHERE pd.[STATUS_PRD] = 'FG'
+
+
             ) m
             WHERE m.PdDate  BETWEEN '${start}' AND '${end}'
             AND m.FCTYCD = @factory
