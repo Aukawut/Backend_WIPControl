@@ -10,7 +10,7 @@ class StockController {
       const results = await pool
         .request()
         .query(
-          `SELECT * FROM [SRRYAPP02].[DB_AVP2WIPCONTROL].[dbo].[V_StockMetal] ORDER BY PartNo, Roller_No`
+          `SELECT * FROM [SRRYAPP02].[DB_AVP2WIPCONTROL].[dbo].[V_StockMetal] ORDER BY Roller_No,PartNo`
         );
       if (results && results?.recordset?.length > 0) {
         pool.close();
