@@ -223,7 +223,7 @@ app.get("/production/plan/:factory/:start/:end",prodution.GetProdPlanFactory);
 app.get("/production/avp/:start/:end/:factory",prodution.GetProdPlanByFactory);
 app.get("/production/weekly/:start/:end/:factory",prodution.GetWeeklyPlan);
 app.get("/production/metal/used/:factory/:start/:end",prodution.GetMetalLogUsed);
-app.get("/production/metalpart/used/:factory/:start/:end",prodution.GetMetalLogUsedByFacPart);
+app.get("/production/metalpart/used/:factory/:start/:end/:avp2only",prodution.GetMetalLogUsedByFacPart);
 app.put("/production/update/plan/:id",prodution.UpdatePlan);
 app.post("/production/add/plan",prodution.AddPlan)
 app.delete("/production/delete/plan/:id",prodution.DeletePlan)
