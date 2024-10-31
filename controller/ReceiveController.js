@@ -164,6 +164,7 @@ class ReceiveController {
     try {
 
       if (tags?.length > 0) {
+      
         const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
         const checkRoller = await pool
           .request()
@@ -173,11 +174,12 @@ class ReceiveController {
                 WHERE status_supply = 'N') b ON a.roller_no = b.roller_no
                 WHERE a.Status = 'USE' AND a.roller_no = @rollerNo
                 ORDER BY a.names,a.items_roller`);
+
+     
+                
         if (checkRoller && checkRoller.recordset?.length > 0) {
-        
-          if (
-            checkRoller.recordset[0].partno !== tags[0].partno
-          ) {
+        if(checkRoller.recordset[0].partno !== null && checkRoller.recordset[0].partno !== ""){
+          if (checkRoller.recordset[0].partno !== tags[0].partno) {
             // ถ้า Roller ไม่ว่าง
             return res.json({
               err: true,
@@ -185,6 +187,7 @@ class ReceiveController {
               partNo: checkRoller?.recordset[0].partno,
             });
           }
+        }
 
           const checkTransectionNo = await pool
             .request()
@@ -332,6 +335,11 @@ class ReceiveController {
             });
           }
         }
+      }else{
+        return res.json({
+          err:true,
+          msg:"Roller isn't Found!"
+        })
       }
     } catch (err) {
       console.log(err);
