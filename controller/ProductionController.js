@@ -1023,9 +1023,12 @@ SELECT SUM(QTY) as SumNgQty,CONVERT(VARCHAR(10),PLAN_DATE, 120) as PD_DATE ,PART
 CONVERT(VARCHAR(10),PLAN_DATE, 120) BETWEEN '${start}' AND '${end}' AND FACTORY = @factory  GROUP BY PLAN_DATE,PART_NO,FACTORY )a
 LEFT JOIN [PSTH-SRRYAPP04].[PRD_WIPCONTROL].[dbo].[TBL_BOMS] b ON a.PART_NO = b.FG_PARTNO WHERE b.RM_PARTNO IS NOT NULL) c ON a.PdDate = c.PD_DATE AND a.FCTYCD COLLATE Thai_CI_AS = c.FACTORY COLLATE Thai_CI_AS 
 AND a.RM_PARTNO COLLATE Thai_CI_AS = c.RM_PARTNO COLLATE Thai_CI_AS
-WHERE b.SumSupplyQty != 0 GROUP BY a.RM_PARTNO,a.FCTYCD
+GROUP BY a.RM_PARTNO,a.FCTYCD
 ORDER BY a.RM_PARTNO ASC`
         );
+
+        //WHERE b.SumSupplyQty != 0 
+        
       if (results && results?.recordset?.length > 0) {
         pool.close();
         return res.json({
