@@ -992,6 +992,63 @@ ORDER BY a.RM_PARTNO,PdDate ASC`
     }
   }
   
+  async GetMetalLogUsedByFacPart(req, res) {
+    const { factory, start, end } = req.params;
+    try {
+      const pool = await new sql.ConnectionPool(sqlConfigApp09).connect();
+      const results = await pool
+        .request()
+        .input("factory", sql.NVarChar, factory)
+        .query(
+          `SELECT a.RM_PARTNO,a.FCTYCD,SUM(ISNULL(b.SumSupplyQty,0)) as SumSupplyQty,SUM(a.SumQtyActual) as SumQtyActual,SUM(ISNULL(b.SumSupplyQty,0)) - SUM(a.SumQtyActual) as QtyDiff,SUM(ISNULL(c.SumNgQty,0))as SumNgQty FROM (
+SELECT SUM(PCKQTY) as SumQtyActual,RM_PARTNO,FCTYCD,CONVERT(VARCHAR(10), PdDate, 120) as PdDate FROM [V_METALAVP2_USED] 
+	WHERE FCTYCD =  @factory AND PdDate BETWEEN '${start}' AND '${end}'
+	GROUP BY RM_PARTNO,FCTYCD,CONVERT(VARCHAR(10), PdDate, 120) ) a
+	LEFT JOIN (
+	-- Supply Ok --
+SELECT SUM(a.supply_ok) as SumSupplyQty ,a.partno,a.factory,a.ReqDate FROM (
+	SELECT partno,supply_ok,factory,
+		CASE 
+			WHEN CONVERT(VARCHAR(5), b.create_date, 108) >= '00:00' AND CONVERT(VARCHAR(5), b.create_date, 108) <= '07:59'
+				THEN CONVERT(VARCHAR(10), DATEADD(day, -1, b.create_date), 120) 
+			ELSE 
+				CONVERT(VARCHAR(10), DATEADD(day, 0, b.create_date), 120) 
+		END AS ReqDate FROM SRRYAPP02.[DB_AVP2WIPCONTROL].[dbo].[tbl_crequestsupply] b
+WHERE status = 'USE' AND approved = 'Y' ) a WHERE a.ReqDate BETWEEN '${start}' AND '${end}' AND factory = @factory GROUP BY a.partno,a.factory,a.ReqDate) b 
+ON a.PdDate = b.ReqDate AND a.FCTYCD COLLATE Thai_CI_AS = b.factory COLLATE Thai_CI_AS AND a.RM_PARTNO COLLATE Thai_CI_AS = b.partno COLLATE Thai_CI_AS
+
+LEFT JOIN (
+	SELECT a.* ,b.RM_PARTNO FROM (
+SELECT SUM(QTY) as SumNgQty,CONVERT(VARCHAR(10),PLAN_DATE, 120) as PD_DATE ,PART_NO,FACTORY FROM [PSTH-SRRYAPP04].[PRD_WIPCONTROL].[dbo].[TBL_PRD_RECORD] WHERE STATUS_PRD = 'NG' AND 
+CONVERT(VARCHAR(10),PLAN_DATE, 120) BETWEEN '${start}' AND '${end}' AND FACTORY = @factory  GROUP BY PLAN_DATE,PART_NO,FACTORY )a
+LEFT JOIN [PSTH-SRRYAPP04].[PRD_WIPCONTROL].[dbo].[TBL_BOMS] b ON a.PART_NO = b.FG_PARTNO WHERE b.RM_PARTNO IS NOT NULL) c ON a.PdDate = c.PD_DATE AND a.FCTYCD COLLATE Thai_CI_AS = c.FACTORY COLLATE Thai_CI_AS 
+AND a.RM_PARTNO COLLATE Thai_CI_AS = c.RM_PARTNO COLLATE Thai_CI_AS
+WHERE b.SumSupplyQty != 0 GROUP BY a.RM_PARTNO,a.FCTYCD
+ORDER BY a.RM_PARTNO ASC`
+        );
+      if (results && results?.recordset?.length > 0) {
+        pool.close();
+        return res.json({
+          err: false,
+          results: results?.recordset,
+          status: "Ok",
+        });
+      } else {
+        pool.close();
+        return res.json({
+          err: true,
+          results: [],
+        });
+      }
+    } catch (err) {
+      console.log(err);
+      return res.json({
+        err: true,
+        msg: err.message,
+      });
+    }
+  }
+
   async UploadNg(req,res) {
     try{
       const pool = await new sql.ConnectionPool(sqlConfig).connect();
