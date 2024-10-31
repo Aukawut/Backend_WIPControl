@@ -313,6 +313,7 @@ app.get("/summary/adhesive/actual/:start/:end",summary.SummaryActualAdhesive);
 //<------ BomController ------>
 app.get("/bom",bom.GetAllBom);
 app.get("/bom/partMaster",bom.GetPartBomMaster);
+app.get("/bom/components/partMaster",bom.GetPartBomMasterComponent);
 app.post("/bom",bom.AddBom)
 app.delete("/bom/:fgPart",bom.DeleteBom)
 app.put("/bom/:fgPartNo",bom.UpdateBom)

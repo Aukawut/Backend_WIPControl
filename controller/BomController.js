@@ -49,6 +49,27 @@ class BomController {
     }
   }
 
+  async GetPartBomMasterComponent(req, res) {
+    try {
+      const pool = await new sql.ConnectionPool(sqlConfig).connect();
+      const results = await pool.request().query(`SELECT RM_PARTNO,COUNT(*) as AMOUNT FROM TBL_BOMS GROUP BY RM_PARTNO ORDER BY RM_PARTNO`);
+      if (results && results.recordset?.length > 0) {
+        return res.json({
+          err: false,
+          results: results.recordset,
+        });
+      } else {
+        return res.json({
+          err: true,
+          results: [],
+          msg: "Not Found",
+        });
+      }
+    } catch (err) {
+      console.log(err);
+    }
+  }
+
   async AddBom(req, res) {
     try {
       const { fgPartNo, rmPartNo, fullName } = req.body;
