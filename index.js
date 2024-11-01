@@ -208,6 +208,8 @@ app.post("/save/handler/supply",adhesive.SaveSupplyByTagNo);
 app.delete("/plan/adhesive/delete/:id",adhesive.DeleteAdhesivePlan);
 app.post("/plan/adhesive/add",adhesive.AddAdhesivePlan);
 app.put("/plan/adhesive/update/:id",adhesive.UpdateAdhesivePlan);
+app.get("/metalRequest/wait",adhesive.GetReqMetalWaitApprove)
+app.get("/metalRequest/waitclose",adhesive.GetReqMetalWaitClose)
 
 
 

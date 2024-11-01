@@ -7,6 +7,68 @@ const QRCode = require("qrcode");
 const utils = new Utils();
 
 class AdhesiveController {
+
+  async GetReqMetalWaitApprove(req, res) {
+    try {
+      const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
+      const results = await pool
+        .request()
+        .query(`SELECT [tran_no] from [dbo].[tbl_crequestsupply] WHERE approved is null AND [status] = 'USE' GROUP BY [tran_no]`);
+      if (results && results.recordset?.length > 0) {
+        pool.close()
+        return res.json({
+          err: false,
+          status: "Ok",
+          results: results?.recordset,
+        });
+      } else {
+        pool.close()
+        return res.json({
+          err: true,
+          msg: "Not found!",
+          results: [],
+        });
+      }
+    } catch (err) {
+      console.log(err);
+      return res.json({
+        err: true,
+        msg: err.message,
+      });
+    }
+  }
+
+  async GetReqMetalWaitClose(req, res) {
+    try {
+      const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
+      const results = await pool
+        .request()
+        .query(`SELECT [tran_no] FROM [tbl_crequestsupply] WHERE [status_finish] = 'N' AND [status] = 'USE' GROUP BY [tran_no]`);
+      if (results && results.recordset?.length > 0) {
+        pool.close()
+        return res.json({
+          err: false,
+          status: "Ok",
+          results: results?.recordset,
+        });
+      } else {
+        pool.close()
+        return res.json({
+          err: true,
+          msg: "Not found!",
+          results: [],
+        });
+      }
+    } catch (err) {
+      console.log(err);
+      return res.json({
+        err: true,
+        msg: err.message,
+      });
+    }
+  }
+
+
   async GetAdhesiveActual(req, res) {
     try {
       const pool = await new sql.ConnectionPool(sqlConfig).connect();
