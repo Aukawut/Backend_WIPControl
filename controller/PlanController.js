@@ -242,7 +242,7 @@ class PlanController {
       AND factory = @factory AND status = 'USE' GROUP BY partno,plan_date) r 
       ON sp.RM_PARTNO COLLATE Thai_CI_AS = r.partno COLLATE Thai_CI_AS AND sp.PLAN_DATE = CONVERT(varchar(10),r.plan_date,120)
       ${reqOnly == 'Y' ? 'WHERE r.QTY_REQ > 0' : ''}
-      ORDER BY PLAN_DATE DESC`);
+      ORDER BY PLAN_DATE,RM_PARTNO DESC`);
 
       
       if(results && results.recordset?.length > 0){

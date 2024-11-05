@@ -349,5 +349,156 @@ class ReceiveController {
       });
     }
   }
+
+  async CancelReceive(req,res) {
+    try{
+      // Params Endpoint
+      const {tranNo} = req.params ; 
+
+      // Body Json
+      const {tags,rollerNo,partNo,lotNo,fullName} = req.body;
+
+      // STMT : SQL
+      let sqlm = ``;
+      let sqldel = ``;
+
+      // Number Value
+      let sumRoller,rollerNos,remain,sumQtyTotal,remainTotal ;
+      
+      if(!rollerNo || tags?.length == 0 || !partNo){
+        return res.json({
+          err:true,
+          msg:"Data is required!"
+        })
+      }
+
+      if(tags?.length > 0) {
+        
+        let sumRev = 0;
+        let part = "";
+        let qtyBox = 0;
+
+        // Open Connection
+        const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
+   
+
+        for(let i = 0; i < tags?.length ; i++) {
+            qtyBox = tags[i].qty_box ;
+            part = tags[i].partno;
+            sumRev += qtyBox;
+        }
+
+      // Check Tag ถูก Supply แล้ว Return Bool
+      const tagSupplyFinished = await utils.CheckTagsSupplyFinished(tags,lotNo);
+
+      if(tagSupplyFinished.err && tagSupplyFinished.msg == "tag error"){
+        console.log("tag error");
+        return res.json({
+          err:true,
+          msg:"Some tag supply finished"
+        })
+      }
+
+      if(tagSupplyFinished.err && tagSupplyFinished.msg == "tag status error"){
+        console.log("tag status error");
+        
+        return res.json({
+          err:true,
+          msg:"Error, tag status"
+        })
+      }
+
+      // Update Status to CANCEL
+      await pool
+      .request()
+      .input("fullName",sql.NVarChar,fullName)
+      .input("tranNo",sql.NVarChar,tranNo)
+      .query(`UPDATE tbl_creceive SET status = 'CANCEL', lastupdate_by = @fullName,lastupdate_date = GETDATE() WHERE [tran_no] = @tranNo`)
+
+      // <--- Start Loop Update --->
+      for(let index = 0; index < tags?.length ; index ++) {
+        
+        await pool
+        .request()
+        .input("lotNo",sql.NVarChar,lotNo)
+        .input("tag",sql.NVarChar,tags[index].tagno)
+        .input("fullName",sql.NVarChar,fullName)
+        .query(`UPDATE tbl_clotcontroldt SET status_rev_tag = 'N', lastupdate_by = @fullName, lastupdate_date = GETDATE() WHERE lot_no = @lotNo AND [tagno] = @tag`);
+        
+        
+        // Delete from tbl_cstockdetail
+        await pool
+        .request()
+        .input("lotNo",sql.NVarChar,tags[index].lot_no)
+        .input("tagNo",sql.NVarChar,tags[index].tagno)
+        .query(`DELETE FROM tbl_cstockdetail WHERE tagno = @tagNo AND [lot_no] = @lotNo`)
+      } 
+
+        // <--- End Loop Update --->
+
+        //ถ้า part =  partNo
+        if(part == partNo) {
+          sqlm = `SELECT sum(receive) AS sum_rev ,partno,roller_no,remain FROM tbl_cstockmetal`
+          sqlm += ` WHERE [partno] = @partNo and [roller_no] = @rollerNo GROUP BY partno,roller_no,remain`
+        }
+
+          const resultStock = await pool.request()
+          .input("partNo",sql.NVarChar,partNo)
+          .input("rollerNo",sql.NVarChar,rollerNo)
+          .query(sqlm)
+          
+          // ถ้ามีข้อมูล Part บน Roller
+          if(resultStock && resultStock.recordset?.length > 0) {
+            sumRoller = resultStock.recordset[0]?.sum_rev;
+            rollerNos = resultStock.recordset[0]?.roller_no;
+            remain = resultStock.recordset[0]?.remain;
+            sumQtyTotal = Number(sumRoller) - Number(sumRev);
+            remainTotal = Number(remain) - Number(sumRev);
+
+            // ถ้ายอดคงเหลือเป็น 0 ทำการลบออกจาก Stock
+            if(remainTotal == 0) {
+              sqldel = `DELETE FROM tbl_cstockmetal`
+            }else{
+              //ถ้าไม่ให้ทำการ Update
+              sqldel = `UPDATE tbl_cstockmetal`
+              sqldel += ` SET receive = @receive ,remain = @remain,lastupdate_by = @fullName,lastupdate_date = GETDATE() WHERE [partno] = @partNo AND [roller_no] = @rollerNo`
+            }
+
+            const stockUpdate = await pool
+            .request()
+            .input("receive",sql.Float,sumQtyTotal)
+            .input("remain",sql.Float,remainTotal)
+            .input("fullName",sql.NVarChar,fullName)
+            .input("partNo",sql.NVarChar,part)
+            .input("rollerNo",sql.NVarChar,rollerNos)
+            .query(sqldel);
+           
+            
+            if(stockUpdate) {
+              pool.close()
+              return res.json({
+                err:false,
+                msg:"Canceled successfully!",
+                status: "Ok"
+              })
+            }
+            
+          }
+
+
+      }else{
+        return res.json({
+          err:true,
+          msg:"Tags isn't found!"
+        })
+      }
+    }catch (err) {
+      console.log(err);
+      return res.json({
+        err: false,
+        msg: err.message,
+      });
+    }
+  }
 }
 module.exports = ReceiveController;

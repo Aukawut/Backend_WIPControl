@@ -229,7 +229,7 @@ app.get("/production/metalpart/used/:factory/:start/:end/:avp2only",prodution.Ge
 app.put("/production/update/plan/:id",prodution.UpdatePlan);
 app.post("/production/add/plan",prodution.AddPlan)
 app.delete("/production/delete/plan/:id",prodution.DeletePlan)
-app.get("/production/actual/:start/:end/:factory",prodution.GetFgActualByFactory)
+app.get("/production/actual/:start/:end/:factory/:status",prodution.GetFgActualByFactory)
 app.post("/production/fg/save",prodution.SaveFg)
 app.put("/production/fg/update/:id",prodution.UpdateFgPrd);
 app.delete("/production/fg/delete/:id",prodution.DeleteFg);
@@ -276,6 +276,7 @@ app.get("/receive/:start/:end",receive.GetReceiveByTransDate);
 app.get("/receive/tran/part/:partNo",receive.GetReceiveByPart);
 app.get("/receive/tran/detail/:tranNo",receive.GetReceiveDetailByTranNo);
 app.post("/receive",receive.ReceiveMetal)
+app.put("/receive/cancel/:tranNo",receive.CancelReceive)
 
 // <------- Roller Controller -------->
 app.get("/roller",roller.GetAllRollerEmpty);

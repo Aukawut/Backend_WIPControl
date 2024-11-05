@@ -170,6 +170,8 @@ class AdhesiveController {
       createdBy,
       datePlate,
       datePlan,
+      booth,
+      tray
     } = req.body;
     try {
       if (
@@ -179,7 +181,7 @@ class AdhesiveController {
         !glue ||
         !createdBy ||
         !datePlan ||
-        !datePlate
+        !datePlate || !booth || !tray
       ) {
         return res.json({
           err: true,
@@ -197,11 +199,13 @@ class AdhesiveController {
         .input("remark", sql.VarChar, remark)
         .input("createdBy", sql.NVarChar, createdBy)
         .input("datePlate", sql.Date, datePlate)
+        .input("booth", sql.Int, booth)
+        .input("tray", sql.Int, tray)
         .input("datePlan", sql.Date, datePlan)
         .input("ip", sql.NVarChar, ip)
         .query(
-          `INSERT INTO [dbo].[TBL_ACTUAL_ADHESIVE] ([PART_NO],[PH_LINE],[GLUE_TYPE],[QTY],[REMARK],[CREATED_BY],[DATE_PLATE],[DATE_PLAN],[IP]) 
-          VALUES (@partNo,@phLine,@glue,@qty,@remark,@createdBy,@datePlate,@datePlan,@ip)`
+          `INSERT INTO [dbo].[TBL_ACTUAL_ADHESIVE] ([PART_NO],[PH_LINE],[GLUE_TYPE],[QTY],[REMARK],[CREATED_BY],[DATE_PLATE],[DATE_PLAN],[IP],[BOOTH],[TRAY]) 
+          VALUES (@partNo,@phLine,@glue,@qty,@remark,@createdBy,@datePlate,@datePlan,@ip,@booth,@tray)`
         );
       if (results && results.rowsAffected[0] > 0) {
         return res.json({
@@ -228,9 +232,9 @@ class AdhesiveController {
     const { id } = req.params;
     const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
 
-    const { qty, remark, updatedBy } = req.body;
+    const { qty, remark, updatedBy,booth,tray } = req.body;
     try {
-      if (!qty || !updatedBy) {
+      if (!qty || !updatedBy || !booth || !tray) {
         return res.json({
           err: true,
           msg: "Data is required!",
@@ -245,10 +249,12 @@ class AdhesiveController {
         .input("remark", sql.VarChar, remark)
         .input("updatedBy", sql.NVarChar, updatedBy)
         .input("ip", sql.NVarChar, ip)
+        .input("booth", sql.Int, booth)
+        .input("tray", sql.Int, tray)
         .input("id", sql.Int, id)
         .query(
           `UPDATE [dbo].[TBL_ACTUAL_ADHESIVE] SET [QTY] = @qty,[REMARK] = @remark,[UPDATED_BY] = @updatedBy,[IP] = @ip,
-          [UPDATED_AT] = GETDATE() WHERE [Id] = @id`
+          [UPDATED_AT] = GETDATE(),[BOOTH] = @booth,[TRAY] = @tray WHERE [Id] = @id`
         );
       if (results && results.rowsAffected[0] > 0) {
         return res.json({

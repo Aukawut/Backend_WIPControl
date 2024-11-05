@@ -277,6 +277,53 @@ class Utils {
     }
   }
 
+
+  async CheckTagsSupplyFinished (tags,lotNo) {
+    try{
+      const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
+      let tagError = 0;
+      let statusTagError = 0;
+
+      for(let i = 0; i < tags?.length ; i++){
+    
+     
+        
+      const results = await pool
+      .request()
+      .input("tag",sql.NVarChar,tags[i].tagno)
+      .input("lotNo",sql.NVarChar,lotNo)
+      .query(`SELECT lot_no,status_supply,status_active FROM tbl_cstockdetail WHERE lot_no = @lotNo AND tagno = @tag`);
+    
+      if(results && results.recordset?.length > 0){
+        
+        
+        if(results?.recordset[0].status_supply == "Y" ){
+        // บาง Tag ถูก Supply
+        tagError ++
+        }
+
+        // งาน HOLD หรือ NG
+        if(results?.recordset[0].status_active == "NG" || results?.recordset[0].status_active == "HOLD"){s
+          statusTagError ++ ;
+        }
+      }
+    
+    }
+    if(tagError > 0) {
+      return {err:true,msg:"tag error"};
+    }else if(statusTagError > 0){
+      return {err:true,msg:"tag status error"};
+
+    }else{
+      return {err:false,msg:"Done"};
+    }
+    }catch(err){
+      console.log(err);
+      
+      return {err:true,msg:"Something went wrong!"};
+    }
+  }
+
   async GenarateTokenApprove(reqNo) {
     const secert = process.env.TOKEN_APPROVE;
     try {

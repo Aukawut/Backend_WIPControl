@@ -610,16 +610,77 @@ class ProductionController {
   }
 
   async GetFgActualByFactory(req, res) {
-    const { factory,start,end } = req.params;
+    const { factory,start,end,status } = req.params;
 
-    const pool = await new sql.ConnectionPool(sqlConfig).connect(); // เปิด Connection
+    const pool = await new sql.ConnectionPool(sqlConfigApp09).connect(); // เปิด Connection
 
     try {
       const results = await pool
         .request()
         .input("factory", sql.NVarChar, factory)
-        .query(`SELECT * FROM [dbo].[TBL_PRD_RECORD] 
-                WHERE [FACTORY] = @factory AND [PLAN_DATE] BETWEEN '${start}' AND '${end}' ORDER BY [CREATED_AT] DESC`);
+        .query(`WITH CTE_PRD AS (
+          SELECT mm.* FROM (
+                SELECT DISTINCT 
+								'0' as Id,
+								a.*, 
+                                b.CRTDON,
+						
+                                CASE 
+                                    WHEN CONVERT(VARCHAR(5), b.CRTDON, 108) >= '00:00' 
+                                        AND CONVERT(VARCHAR(5), b.CRTDON, 108) <= '07:59'
+                                    THEN CONVERT(VARCHAR(10), DATEADD(day, -1, b.CRTDON), 120) 
+                                    ELSE CONVERT(VARCHAR(10), DATEADD(day, 0, b.CRTDON), 120) 
+                                END AS PdDate,
+								'FGTRN' as Prd_Status,
+								'' as REMARK
+                FROM [dbo].[tbl_PD_DailyClosedDtl] a
+                LEFT JOIN [dbo].[tbl_PD_DailyClosedHdr] b 
+                    ON a.TRNNO = b.TRNNO 
+                    AND a.FCTYCD = b.FCTYCD ) mm  
+					UNION ALL
+					SELECT pd.Id,pd.FACTORY COLLATE Thai_CI_AI as FCTYCD,
+			
+				   pd.[TRAN_NO] COLLATE Thai_CI_AI as TRNNO,
+				   '' AS TRNLNO,
+				   '' AS LOTNO,
+				   pd.PART_NO COLLATE Thai_CI_AI as ITEMNO,
+				   pd.PACK COLLATE Thai_CI_AI as PACKCD,
+				   pd.[QTY] as PCKQTY,
+				   0 as TOTQTY,
+				   'PCS' as UOMCD,
+				   pd.[CREATED_AT] as CRTDON,
+				   pd.[PLAN_DATE] as PdDate,
+				 'FGMAN' as Prd_Status,
+				 pd.REMARK
+		FROM [PSTH-SRRYAPP04].[PRD_WIPCONTROL].[dbo].[TBL_PRD_RECORD] pd WHERE pd.STATUS_PRD = 'FG'
+		
+
+		UNION ALL
+
+		SELECT 
+			ng.Id,
+				ng.FACTORY COLLATE Thai_CI_AI as FCTYCD,
+			   ng.[TRAN_NO] COLLATE Thai_CI_AI as TRNNO,
+			   '' AS TRNLNO,
+			   '' AS LOTNO,
+		
+			   ng.PART_NO COLLATE Thai_CI_AI as ITEMNO,
+			   ng.PACK COLLATE Thai_CI_AI as PACKCD,
+			   ng.[QTY] as PCKQTY,
+			   0 as TOTQTY,
+			   'PCS' as UOMCD,
+			   ng.[CREATED_AT] as CRTDON,
+			   ng.[PLAN_DATE] as PdDate,
+			'NG' as Prd_Status,
+			ng.REMARK
+		FROM [PSTH-SRRYAPP04].[PRD_WIPCONTROL].[dbo].[TBL_PRD_RECORD] ng WHERE ng.[STATUS_PRD] = 'NG'
+		
+		) 
+		SELECT 
+			c.*,CONVERT(varchar(10),c.PdDate,120) as PrdDate FROM 
+				CTE_PRD c WHERE CONVERT(varchar(10),c.PdDate,120) BETWEEN '${start}' AND '${end}'
+				AND c.FCTYCD = @factory AND c.Prd_Status IN (${status})
+				ORDER BY PrdDate`);
       if(results && results?.recordset?.length > 0) {
         return res.json({
           err:false,
