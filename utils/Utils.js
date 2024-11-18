@@ -345,13 +345,21 @@ class Utils {
     try {
       const poolApp02 = await new sql.ConnectionPool(sqlConfigApp02).connect();
       const pool = await new sql.ConnectionPool(sqlConfig).connect();
+      /*
+      -- ไม่ให้ส่ง Mail ไปยังปลายทาง --
+      P230056 -> 	ruthchanan.rutpopthananan@prospira.com
+      J22065 -> 	Taihei.gotou@prospira.com
+      P240075 -> 	rattikorn.klumkum@prospira.com
+      P240070 -> 	kochuen.siew@prospira.com
+      030415 -> 	yupaporn.netsopa@prospira.com
+      */
       const approver = await pool.request()
         .query(`SELECT u.*,r.NAME_ROLE ,hr.Ad_Mail,hr.UHR_FullName_th,hr.UHR_FirstName_en,f.FACTORY_NAME
         FROM TBL_USERS u LEFT JOIN TBL_ROLE r ON u.ROLE = r.Id
 		LEFT JOIN TBL_FACTORY f ON u.FACTORY = f.Id
         LEFT JOIN [dbo].[V_AllUsers] hr ON u.EMP_CODE = hr.UHR_EmpCode
         WHERE (r.NAME_ROLE = 'Admin' OR r.NAME_ROLE = 'Boss' OR (r.NAME_ROLE = 'Leader' AND f.FACTORY_NAME = 'AVP2' ))
-		AND (AD_Mail IS NOT NULL AND EMP_CODE NOT IN ('J22065','P240075','P240070','030415'))`);
+		AND (AD_Mail IS NOT NULL AND EMP_CODE NOT IN ('J22065','P240075','P240070','030415','P230056'))`);
       if (approver && approver?.recordset?.length > 0) {
         const approverList = approver.recordset;
 
