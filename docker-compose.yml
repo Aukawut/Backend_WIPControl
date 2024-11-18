@@ -20,6 +20,7 @@ services:
       LDAP_URL: ldap://10.144.1.6
       DOMAIN_NAME: PSTH.COM
       TOKEN_APPROVE: $$wipcontrolpsthsystem@@
+      MAIL_PASSWORD: Psth@min135
 
       DB_NAME_APP02: DB_AVP2WIPCONTROL
       DB_SERVER_APP02: SRRYAPP02
