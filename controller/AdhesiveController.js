@@ -7,22 +7,23 @@ const QRCode = require("qrcode");
 const utils = new Utils();
 
 class AdhesiveController {
-
   async GetReqMetalWaitApprove(req, res) {
     try {
       const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
       const results = await pool
         .request()
-        .query(`SELECT [tran_no] from [dbo].[tbl_crequestsupply] WHERE approved is null AND [status] = 'USE' GROUP BY [tran_no]`);
+        .query(
+          `SELECT [tran_no] from [dbo].[tbl_crequestsupply] WHERE approved is null AND [status] = 'USE' GROUP BY [tran_no]`
+        );
       if (results && results.recordset?.length > 0) {
-        pool.close()
+        pool.close();
         return res.json({
           err: false,
           status: "Ok",
           results: results?.recordset,
         });
       } else {
-        pool.close()
+        pool.close();
         return res.json({
           err: true,
           msg: "Not found!",
@@ -43,16 +44,18 @@ class AdhesiveController {
       const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
       const results = await pool
         .request()
-        .query(`SELECT [tran_no] FROM [tbl_crequestsupply] WHERE [status_finish] = 'N' AND [status] = 'USE' GROUP BY [tran_no]`);
+        .query(
+          `SELECT [tran_no] FROM [tbl_crequestsupply] WHERE [status_finish] = 'N' AND [status] = 'USE' GROUP BY [tran_no]`
+        );
       if (results && results.recordset?.length > 0) {
-        pool.close()
+        pool.close();
         return res.json({
           err: false,
           status: "Ok",
           results: results?.recordset,
         });
       } else {
-        pool.close()
+        pool.close();
         return res.json({
           err: true,
           msg: "Not found!",
@@ -67,7 +70,6 @@ class AdhesiveController {
       });
     }
   }
-
 
   async GetAdhesiveActual(req, res) {
     try {
@@ -170,18 +172,24 @@ class AdhesiveController {
       createdBy,
       datePlate,
       datePlan,
-      booth,
-      tray
+      machine,
+      tray,
+      ngQty,
+      trial,
     } = req.body;
+    console.log(req.body);
+
     try {
       if (
-        !qty ||
+        (!qty && !ngQty) ||
         !partNo ||
         !phLine ||
         !glue ||
         !createdBy ||
         !datePlan ||
-        !datePlate || !booth || !tray
+        !datePlate ||
+        !machine ||
+        !tray
       ) {
         return res.json({
           err: true,
@@ -189,34 +197,42 @@ class AdhesiveController {
         });
       }
 
-      const pool = await new sql.ConnectionPool(sqlConfig).connect();
-      const results = await pool
-        .request()
-        .input("partNo", sql.NVarChar, partNo)
-        .input("phLine", sql.NVarChar, phLine)
-        .input("glue", sql.NVarChar, glue)
-        .input("qty", sql.Int, qty)
-        .input("remark", sql.VarChar, remark)
-        .input("createdBy", sql.NVarChar, createdBy)
-        .input("datePlate", sql.Date, datePlate)
-        .input("booth", sql.Int, booth)
-        .input("tray", sql.Int, tray)
-        .input("datePlan", sql.Date, datePlan)
-        .input("ip", sql.NVarChar, ip)
-        .query(
-          `INSERT INTO [dbo].[TBL_ACTUAL_ADHESIVE] ([PART_NO],[PH_LINE],[GLUE_TYPE],[QTY],[REMARK],[CREATED_BY],[DATE_PLATE],[DATE_PLAN],[IP],[BOOTH],[TRAY]) 
-          VALUES (@partNo,@phLine,@glue,@qty,@remark,@createdBy,@datePlate,@datePlan,@ip,@booth,@tray)`
-        );
-      if (results && results.rowsAffected[0] > 0) {
+      const insertActual = await utils.AdhesiveSaveProduction(
+        partNo,
+        phLine,
+        glue,
+        qty,
+        remark,
+        createdBy,
+        datePlate,
+        machine,
+        tray,
+        datePlan,
+        ip,
+        trial
+      );
+
+      const insertNG = await utils.AdhesiveSaveNGProduction(
+        datePlan,
+        datePlate,
+        partNo,
+        createdBy,
+        remark,
+        remark,
+        ngQty,
+        trial
+      );
+
+      if (!insertActual.err && !insertNG.err) {
         return res.json({
           err: false,
+          msg: "Data saved!",
           status: "Ok",
-          msg: "Actual saved!",
         });
       } else {
         return res.json({
           err: true,
-          msg: "Something went wrong!",
+          msg: insertActual?.msg + insertNG?.msg,
         });
       }
     } catch (err) {
@@ -229,38 +245,93 @@ class AdhesiveController {
   }
 
   async UpdateActual(req, res) {
-    const { id } = req.params;
     const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+    const { id } = req.params;
+    const {
+      partNo,
+      qty,
+      remark,
+      updatedBy,
+      planDate,
+      plateDate,
+      machine,
+      tray,
+      ngQty,
+    } = req.body;
 
-    const { qty, remark, updatedBy,booth,tray } = req.body;
     try {
-      if (!qty || !updatedBy || !booth || !tray) {
+      if (
+        (!partNo,
+        !qty,
+        !remark,
+        !updatedBy,
+        !machine,
+        !tray,
+        !ngQty,
+        !planDate,
+        !plateDate)
+      ) {
         return res.json({
           err: true,
           msg: "Data is required!",
         });
       }
 
-      const pool = await new sql.ConnectionPool(sqlConfig).connect();
-      const results = await pool
-        .request()
+      let updatedNg = false;
+      let insertedNg = false;
 
-        .input("qty", sql.Int, qty)
-        .input("remark", sql.VarChar, remark)
-        .input("updatedBy", sql.NVarChar, updatedBy)
-        .input("ip", sql.NVarChar, ip)
-        .input("booth", sql.Int, booth)
-        .input("tray", sql.Int, tray)
-        .input("id", sql.Int, id)
-        .query(
-          `UPDATE [dbo].[TBL_ACTUAL_ADHESIVE] SET [QTY] = @qty,[REMARK] = @remark,[UPDATED_BY] = @updatedBy,[IP] = @ip,
-          [UPDATED_AT] = GETDATE(),[BOOTH] = @booth,[TRAY] = @tray WHERE [Id] = @id`
+      const pool = await new sql.ConnectionPool(sqlConfig).connect();
+
+      const oldNg = await pool.request().input("partNo", sql.NVarChar, partNo)
+        .query(`SELECT * FROM [dbo].[TBL_NG_ADHESIVE] WHERE [PART_NO] = @partNo 
+        AND CONVERT(DATE,[PLAN_DATE]) = '${planDate}' AND CONVERT(DATE,[PLATE_DATE]) = '${plateDate}'`);
+
+      // If Inserted NG to TBL_NG_ADHESIVE
+      if (oldNg && oldNg?.recordset?.length > 0) {
+        // Update (NG)
+        const idNg = oldNg?.recordset[0]?.Id;
+
+        const updateNg = await utils.UpdateNgAdhesive(
+          idNg,
+          updatedBy,
+          remark,
+          ngQty
         );
-      if (results && results.rowsAffected[0] > 0) {
+
+        if (!updateNg?.err) {
+          updatedNg = true;
+        }
+      } else {
+        // Insert (NG)
+        const insertNG = await utils.AdhesiveSaveNGProduction(
+          planDate,
+          plateDate,
+          partNo,
+          updatedBy,
+          remark,
+          remark,
+          ngQty
+        );
+        if (!insertNG?.err) {
+          insertedNg = true;
+        }
+      }
+
+      const updateActual = await utils.AdhesiveUpdateProduction(
+        machine,
+        qty,
+        remark,
+        updatedBy,
+        tray,
+        id,
+        ip
+      );
+
+      if ((insertedNg || updatedNg) && !updateActual?.err) {
         return res.json({
           err: false,
+          msg: "Data updated!",
           status: "Ok",
-          msg: "Actual updated!",
         });
       } else {
         return res.json({
@@ -276,6 +347,55 @@ class AdhesiveController {
       });
     }
   }
+
+  // async UpdateActual(req, res) {
+  //   const { id } = req.params;
+  //   const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+
+  //   const { qty, remark, updatedBy, booth, tray } = req.body;
+  //   try {
+  //     if (!qty || !updatedBy || !booth || !tray) {
+  //       return res.json({
+  //         err: true,
+  //         msg: "Data is required!",
+  //       });
+  //     }
+
+  //     const pool = await new sql.ConnectionPool(sqlConfig).connect();
+  //     const results = await pool
+  //       .request()
+
+  //       .input("qty", sql.Int, qty)
+  //       .input("remark", sql.VarChar, remark)
+  //       .input("updatedBy", sql.NVarChar, updatedBy)
+  //       .input("ip", sql.NVarChar, ip)
+  //       .input("booth", sql.Int, booth)
+  //       .input("tray", sql.Int, tray)
+  //       .input("id", sql.Int, id)
+  //       .query(
+  //         `UPDATE [dbo].[TBL_ACTUAL_ADHESIVE] SET [QTY] = @qty,[REMARK] = @remark,[UPDATED_BY] = @updatedBy,[IP] = @ip,
+  //         [UPDATED_AT] = GETDATE(),[BOOTH] = @booth,[TRAY] = @tray WHERE [Id] = @id`
+  //       );
+  //     if (results && results.rowsAffected[0] > 0) {
+  //       return res.json({
+  //         err: false,
+  //         status: "Ok",
+  //         msg: "Actual updated!",
+  //       });
+  //     } else {
+  //       return res.json({
+  //         err: true,
+  //         msg: "Something went wrong!",
+  //       });
+  //     }
+  //   } catch (err) {
+  //     console.log(err);
+  //     return res.json({
+  //       err: true,
+  //       msg: err.message,
+  //     });
+  //   }
+  // }
 
   async RequestMetal(req, res) {
     const type = "RMT"; //RMT20240905001
@@ -537,7 +657,7 @@ class AdhesiveController {
             });
           }
         }
-        console.log(results.recordset);
+        
 
         return res.json({
           err: false,
@@ -1166,7 +1286,7 @@ class AdhesiveController {
         ` SELECT ng.*,p.SumPlanQty as QtyPlan  FROM [dbo].[TBL_NG_ADHESIVE] ng  
             LEFT JOIN  (SELECT PART_NO,SUM(QTY) as SumPlanQty,DATE_PLATE FROM [TBL_ADHESIVE_PLAN] GROUP BY PART_NO,DATE_PLATE) p  
             ON ng.PART_NO COLLATE Thai_CI_AI = p.PART_NO COLLATE Thai_CI_AI AND ng.PLATE_DATE = p.DATE_PLATE
-            WHERE ng.[PLATE_DATE] BETWEEN '${start}' AND '${end}' ORDER BY ng.CREATED_AT DESC`
+            WHERE ng.[PLATE_DATE] BETWEEN '${start}' AND '${end}' AND [TRIAL] != 'Y' ORDER BY ng.CREATED_AT DESC`
       );
 
       if (results && results?.recordset?.length > 0) {
@@ -1309,7 +1429,7 @@ class AdhesiveController {
 
   async GetAllRequestMetalByFactory(req, res) {
     try {
-      const { start, end, notFinished,factory } = req.params;
+      const { start, end, notFinished, factory } = req.params;
       const stmt_all = `SELECT DISTINCT tran_no,tran_date,factory,user_supply ,status,status_finish,create_by,create_date,lastupdate_by,lastupdate_date,plan_date,approved  FROM tbl_crequestsupply 
       WHERE tran_date between '${start}' AND '${end}' AND factory = @factory order by tran_no`;
 
@@ -1320,7 +1440,7 @@ class AdhesiveController {
       const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
       const result = await pool
         .request()
-        .input("factory",sql.NVarChar,factory)
+        .input("factory", sql.NVarChar, factory)
         .query(notFinished == "Y" ? stmt_wait : stmt_all);
       if (result && result.recordset?.length > 0) {
         return res.json({
@@ -1342,7 +1462,6 @@ class AdhesiveController {
       });
     }
   }
-
 
   async GetAllRequestMetalByTrans(req, res) {
     try {
@@ -1597,11 +1716,11 @@ class AdhesiveController {
     try {
       const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
       const poolApp04 = await new sql.ConnectionPool(sqlConfig).connect();
-      const { transecNo, items, fullName, planDate, factory, remark } = req.body;
+      const { transecNo, items, fullName, planDate, factory, remark } =
+        req.body;
       const dateNow = moment(new Date()).format("YYYY-MM-DD");
       let inserted = 0;
-      
-    
+
       if (
         !fullName ||
         items?.length == 0 ||
@@ -1632,7 +1751,8 @@ class AdhesiveController {
           factory !== "AVP1" &&
           factory !== "AVP3" &&
           factory !== "AVP4" &&
-          factory !== "AVP5" && factory !== "Expire_Lot"
+          factory !== "AVP5" &&
+          factory !== "Expire_Lot"
         ) {
           // Expire Lot
         } else {
@@ -1677,17 +1797,15 @@ class AdhesiveController {
 
               if (Number(boxOdd) > 0) {
                 limit =
-                  (Number(qtyPlan) - Number(boxOdd) + Number(stdBox) )- supplyQty;
-              
+                  Number(qtyPlan) - Number(boxOdd) + Number(stdBox) - supplyQty;
               } else {
-                limit = (Number(qtyPlan) - supplyQty);
+                limit = Number(qtyPlan) - supplyQty;
               }
-              if(limit % stdBox > 0){
+              if (limit % stdBox > 0) {
+                limit += stdBox - (limit % stdBox);
+              }
+              console.log("limit", limit);
 
-                limit += (stdBox - (limit % stdBox))
-              }       
-              console.log("limit",limit);
-              
               if (Number(items[i].qty) > limit) {
                 limitError.push({
                   partNo: items[i].partNo,
@@ -2008,10 +2126,10 @@ class AdhesiveController {
   async GetAllRequestByStatus(req, res) {
     const { status } = req.params;
     try {
-      const stmt_wait = `SELECT tran_no,approved,approved_at,COUNT(*) as items,factory,plan_date FROM [dbo].[tbl_crequestsupply] WHERE approved IS NULL GROUP BY tran_no,approved,approved_at,factory,plan_date ORDER BY tran_no DESC`;
-      const stmt_not = `SELECT tran_no,approved,approved_at,COUNT(*) as items,factory,plan_date FROM [dbo].[tbl_crequestsupply] WHERE approved = 'N' GROUP BY tran_no,approved,approved_at,factory,plan_date ORDER BY tran_no DESC`;
-      const stmt_approve = `SELECT tran_no,approved,approved_at,COUNT(*) as items,factory,plan_date FROM [dbo].[tbl_crequestsupply] WHERE approved = 'Y' GROUP BY tran_no,approved,approved_at,factory,plan_date ORDER BY tran_no DESC`;
-      const stmt_all = `SELECT tran_no,approved,approved_at,COUNT(*) as items,factory,plan_date FROM [dbo].[tbl_crequestsupply]  GROUP BY tran_no,approved,approved_at,factory,plan_date ORDER BY tran_no DESC`;
+      const stmt_wait = `SELECT tran_no,approved,approved_at,COUNT(*) as items,factory,plan_date FROM [dbo].[tbl_crequestsupply] WHERE approved IS NULL AND STATUS = 'USE' GROUP BY tran_no,approved,approved_at,factory,plan_date ORDER BY tran_no DESC`;
+      const stmt_not = `SELECT tran_no,approved,approved_at,COUNT(*) as items,factory,plan_date FROM [dbo].[tbl_crequestsupply] WHERE approved = 'N' AND STATUS = 'USE' GROUP BY tran_no,approved,approved_at,factory,plan_date ORDER BY tran_no DESC`;
+      const stmt_approve = `SELECT tran_no,approved,approved_at,COUNT(*) as items,factory,plan_date FROM [dbo].[tbl_crequestsupply] WHERE approved = 'Y' AND STATUS = 'USE' GROUP BY tran_no,approved,approved_at,factory,plan_date ORDER BY tran_no DESC`;
+      const stmt_all = `SELECT tran_no,approved,approved_at,COUNT(*) as items,factory,plan_date FROM [dbo].[tbl_crequestsupply]  AND STATUS = 'USE' GROUP BY tran_no,approved,approved_at,factory,plan_date ORDER BY tran_no DESC`;
 
       const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
       const results = await pool
@@ -2150,30 +2268,31 @@ class AdhesiveController {
 
   async CancelSupplyMetal(req, res) {
     try {
-      const {tags,fullName} = req.body ; // Array Object
+      const { tags, fullName } = req.body; // Array Object
       const { tranNo } = req.params;
-      
+
       let updatedStockDt = 0;
       let updatedStockHd = 0;
 
-      if(tags?.length == 0 || !tags || !fullName) {
+      if (tags?.length == 0 || !tags || !fullName) {
         return res.json({
-          err:true,
-          msg:"Data is required!"
-        })
+          err: true,
+          msg: "Data is required!",
+        });
       }
-      
+
       // OpenConnection
       const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
 
-       // Update
+      // Update
       const update = await pool
-      .request()
-      .input("tranNo",sql.NVarChar,tranNo)
-      .query(`UPDATE tbl_csupply SET status = 'CANCEL' WHERE [tran_no] = @tranNo`)
+        .request()
+        .input("tranNo", sql.NVarChar, tranNo)
+        .query(
+          `UPDATE tbl_csupply SET status = 'CANCEL' WHERE [tran_no] = @tranNo`
+        );
 
-     
-      if(update && update.rowsAffected[0] > 0){
+      if (update && update.rowsAffected[0] > 0) {
         // Start Loop
         for (let i = 0; i < tags?.length; i++) {
           const qty = Number(tags[i].qty_box);
@@ -2200,27 +2319,24 @@ class AdhesiveController {
           if (updateStockMetal && updateStockMetal?.rowsAffected[0] > 0) {
             updatedStockHd++; // Make Sure Data Updated in SQL
           }
-        }//<----- End Loop---->
+        } //<----- End Loop---->
 
         // Check Tags Lenght equoa to updateStockMetal and updateStockMetal
         if (updatedStockDt == tags?.length && updatedStockHd == tags?.length) {
-          pool.close() // Close Connection
+          pool.close(); // Close Connection
           return res.json({
             err: false,
             msg: "Canceled successfully!",
             status: "Ok",
           });
         } else {
-          pool.close() // Close Connection
+          pool.close(); // Close Connection
           return res.json({
             err: true,
             msg: "Update Stock Error!",
           });
         }
-
-        
       }
-
     } catch (err) {
       return res.json({
         err: true,
@@ -2229,29 +2345,31 @@ class AdhesiveController {
     }
   }
 
-  async CheckRollerUsedByPart(req,res) {
-    try{
-      const{partNo} = req.params ;
+  async CheckRollerUsedByPart(req, res) {
+    try {
+      const { partNo } = req.params;
       const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
       const result = await pool
-      .request()
-      .input("partNo",sql.NVarChar,partNo)
-      .query(`SELECT distinct roller_no,roller_detail,partno  from tbl_cstockdetail WHERE partno = @partNo and status_supply = 'N'`)
-    
-      if(result && result.recordset?.length > 0) {
+        .request()
+        .input("partNo", sql.NVarChar, partNo)
+        .query(
+          `SELECT distinct roller_no,roller_detail,partno  from tbl_cstockdetail WHERE partno = @partNo and status_supply = 'N'`
+        );
+
+      if (result && result.recordset?.length > 0) {
         return res.json({
-          err:false,
-          status:"Ok",
-          results:result.recordset
-        })
-      }else{
+          err: false,
+          status: "Ok",
+          results: result.recordset,
+        });
+      } else {
         return res.json({
-          err:true,
-          msg:"Not Found",
-          results:[]
-        })
+          err: true,
+          msg: "Not Found",
+          results: [],
+        });
       }
-    }catch (err) {
+    } catch (err) {
       return res.json({
         err: true,
         msg: err.message,
@@ -2259,96 +2377,96 @@ class AdhesiveController {
     }
   }
 
-
-  async SearchRequestDetailByTrans(req,res) {
-    try{
-      const {tranNo} = req.params ;
+  async SearchRequestDetailByTrans(req, res) {
+    try {
+      const { tranNo } = req.params;
       const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
       const results = await pool
-      .request()
-      .input("tranNo",sql.NVarChar,tranNo)
-      .query(`SELECT factory,user_supply,status_finish from tbl_crequestsupply where [tran_no] = @tranNo AND [status] = 'USE'`)
-      if(results && results.recordset?.length > 0) {
+        .request()
+        .input("tranNo", sql.NVarChar, tranNo)
+        .query(
+          `SELECT factory,user_supply,status_finish from tbl_crequestsupply where [tran_no] = @tranNo AND [status] = 'USE'`
+        );
+      if (results && results.recordset?.length > 0) {
         pool.close();
         return res.json({
-          err:false,
-          status:"Ok",
-          results:results.recordset
-        })
-      }else{
+          err: false,
+          status: "Ok",
+          results: results.recordset,
+        });
+      } else {
         pool.close();
         return res.json({
-          err:true,
-          msg:"Not Found",
-          results:[]
-        })
+          err: true,
+          msg: "Not Found",
+          results: [],
+        });
       }
-
-    }catch (err) {
+    } catch (err) {
       return res.json({
         err: true,
         msg: err.message,
       });
     }
   }
-  async GetTagDetailByTag(req,res) {
-    try{
-      const {tagNo} = req.params ;
+  async GetTagDetailByTag(req, res) {
+    try {
+      const { tagNo } = req.params;
       const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
       const results = await pool
-      .request()
-      .input("tagNo",sql.NVarChar,tagNo)
-      .query(`SELECT  * FROM tbl_cstockdetail WHERE tagno = @tagNo and status = 'USE'`)
-      if(results && results.recordset?.length > 0) {
+        .request()
+        .input("tagNo", sql.NVarChar, tagNo)
+        .query(
+          `SELECT  * FROM tbl_cstockdetail WHERE tagno = @tagNo and status = 'USE'`
+        );
+      if (results && results.recordset?.length > 0) {
         pool.close();
         return res.json({
-          err:false,
-          status:"Ok",
-          results:results.recordset
-        })
-      }else{
+          err: false,
+          status: "Ok",
+          results: results.recordset,
+        });
+      } else {
         pool.close();
         return res.json({
-          err:true,
-          msg:"Not Found",
-          results:[]
-        })
+          err: true,
+          msg: "Not Found",
+          results: [],
+        });
       }
-
-    }catch (err) {
+    } catch (err) {
       return res.json({
         err: true,
         msg: err.message,
       });
     }
   }
-  async SearchAmountRequestByPart(req,res) {
-    try{
-      const {tranNo,partNo} = req.params ;
+  async SearchAmountRequestByPart(req, res) {
+    try {
+      const { tranNo, partNo } = req.params;
       const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
       const results = await pool
-      .request()
-      .input("tranNo",sql.NVarChar,tranNo)
-      .input("partNo",sql.NVarChar,partNo)
-      .query(`SELECT tran_no,partno,qty_supply,supply_ok ,box_total ,status_finish  FROM tbl_crequestsupply 
-        WHERE partno = @partNo and tran_no = @tranNo`)
-      if(results && results.recordset?.length > 0) {
+        .request()
+        .input("tranNo", sql.NVarChar, tranNo)
+        .input("partNo", sql.NVarChar, partNo)
+        .query(`SELECT tran_no,partno,qty_supply,supply_ok ,box_total ,status_finish  FROM tbl_crequestsupply 
+        WHERE partno = @partNo and tran_no = @tranNo`);
+      if (results && results.recordset?.length > 0) {
         pool.close();
         return res.json({
-          err:false,
-          status:"Ok",
-          results:results.recordset
-        })
-      }else{
+          err: false,
+          status: "Ok",
+          results: results.recordset,
+        });
+      } else {
         pool.close();
         return res.json({
-          err:true,
-          msg:"Not Found",
-          results:[]
-        })
+          err: true,
+          msg: "Not Found",
+          results: [],
+        });
       }
-
-    }catch (err) {
+    } catch (err) {
       return res.json({
         err: true,
         msg: err.message,
@@ -2356,33 +2474,32 @@ class AdhesiveController {
     }
   }
 
-  async SearchSumQtyRequestByPart(req,res) {
-    try{
-      const {tranNo,partNo} = req.params ;
+  async SearchSumQtyRequestByPart(req, res) {
+    try {
+      const { tranNo, partNo } = req.params;
       const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
       const results = await pool
-      .request()
-      .input("tranNo",sql.NVarChar,tranNo)
-      .input("partNo",sql.NVarChar,partNo)
-      .query(`SELECT supply_code ,partno,sum(qty_box) as sumqty ,count(tagno) as c_tag  from tbl_csupply where  partno = @partNo AND 
-        supply_code = @tranNo and status = 'USE' group by supply_code,partno`)
-      if(results && results.recordset?.length > 0) {
+        .request()
+        .input("tranNo", sql.NVarChar, tranNo)
+        .input("partNo", sql.NVarChar, partNo)
+        .query(`SELECT supply_code ,partno,sum(qty_box) as sumqty ,count(tagno) as c_tag  from tbl_csupply where  partno = @partNo AND 
+        supply_code = @tranNo and status = 'USE' group by supply_code,partno`);
+      if (results && results.recordset?.length > 0) {
         pool.close();
         return res.json({
-          err:false,
-          status:"Ok",
-          results:results.recordset
-        })
-      }else{
+          err: false,
+          status: "Ok",
+          results: results.recordset,
+        });
+      } else {
         pool.close();
         return res.json({
-          err:true,
-          msg:"Not Found",
-          results:[]
-        })
+          err: true,
+          msg: "Not Found",
+          results: [],
+        });
       }
-
-    }catch (err) {
+    } catch (err) {
       return res.json({
         err: true,
         msg: err.message,
@@ -2390,41 +2507,39 @@ class AdhesiveController {
     }
   }
 
-
-  async SupplyMetalByReqNo(req,res) {
-    try{
-      const {tranNo} = req.params ;
-      const {fullName,factory} = req.body ;
-      if(!fullName || !factory) {
+  async SupplyMetalByReqNo(req, res) {
+    try {
+      const { tranNo } = req.params;
+      const { fullName, factory } = req.body;
+      if (!fullName || !factory) {
         return res.json({
-          err:true,
-          msg:"Data is required!"
-        })
+          err: true,
+          msg: "Data is required!",
+        });
       }
       const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
       const update = await pool
-      .request()
-      .input("tranNo",sql.NVarChar,tranNo)
-      .input("fullName",sql.NVarChar,fullName)
-      .input("factory",sql.NVarChar,factory)
-      .query(`UPDATE tbl_crequestsupply SET status_finish = 'Y' ,lastupdate_by = @fullName,
-        lastupdate_date = convert(varchar(16),Getdate(),120) where tran_no = @tranNo AND [factory] = @factory`)
-      if(update && update.rowsAffected[0] > 0) {
+        .request()
+        .input("tranNo", sql.NVarChar, tranNo)
+        .input("fullName", sql.NVarChar, fullName)
+        .input("factory", sql.NVarChar, factory)
+        .query(`UPDATE tbl_crequestsupply SET status_finish = 'Y' ,lastupdate_by = @fullName,
+        lastupdate_date = convert(varchar(16),Getdate(),120) where tran_no = @tranNo AND [factory] = @factory`);
+      if (update && update.rowsAffected[0] > 0) {
         pool.close();
         return res.json({
-          err:false,
-          status:"Ok",
-          msg: "Updated!"
-        })
-      }else{
+          err: false,
+          status: "Ok",
+          msg: "Updated!",
+        });
+      } else {
         pool.close();
         return res.json({
-          err:true,
-          msg:"Update Error!"
-        })
+          err: true,
+          msg: "Update Error!",
+        });
       }
-
-    }catch (err) {
+    } catch (err) {
       return res.json({
         err: true,
         msg: err.message,
@@ -2432,42 +2547,38 @@ class AdhesiveController {
     }
   }
 
-  async CheckLotFiFO(req,res) {
-    try{
-      const {dateExp,part} = req.params ;
+  async CheckLotFiFO(req, res) {
+    try {
+      const { dateExp, part } = req.params;
 
-      if(!dateExp || !part) {
+      if (!dateExp || !part) {
         return res.json({
-          err:true,
-          msg:"Data is required!"
-        })
+          err: true,
+          msg: "Data is required!",
+        });
       }
       const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
-      const results = await pool
-      .request()
-      .input("partNo",sql.NVarChar,part)
-
-      .query(`SELECT S.lot_no ,S.date_expire ,S.date_lot,sum(S.qty_box) as sumbox,convert(int,substring(S.lot_no,6,9)) as lot_sup ,L.create_date from tbl_cstockdetail S, tbl_clotcontrolDt L
+      const results = await pool.request().input("partNo", sql.NVarChar, part)
+        .query(`SELECT S.lot_no ,S.date_expire ,S.date_lot,sum(S.qty_box) as sumbox,convert(int,substring(S.lot_no,6,9)) as lot_sup ,L.create_date from tbl_cstockdetail S, tbl_clotcontrolDt L
         WHERE S.lot_no=L.lot_no and S.partno=L.partno and S.tagno=L.tagno and  S.partno = @partNo and S.status = 'USE'
         and S.status_supply = 'N' AND S.status_active = 'FG' AND S.date_expire <= '${dateExp}' group by  S.lot_no ,S.date_expire ,S.date_lot ,L.create_date order by S.date_lot,L.create_date ,convert(int,substring(S.lot_no,6,9))
-        `)
-      if(results && results.recordset?.length > 0) {
+        `);
+      if (results && results.recordset?.length > 0) {
         pool.close();
         return res.json({
-          err:false,
-          status:"Ok",
-          results: results.recordset
-        })
-      }else{
+          err: false,
+          status: "Ok",
+          results: results.recordset,
+        });
+      } else {
         pool.close();
         return res.json({
-          err:true,
-          msg:"Not Found",
-          results: []
-        })
+          err: true,
+          msg: "Not Found",
+          results: [],
+        });
       }
-
-    }catch (err) {
+    } catch (err) {
       return res.json({
         err: true,
         msg: err.message,
@@ -2475,108 +2586,120 @@ class AdhesiveController {
     }
   }
 
-  async SaveSupplyByTagNo (req,res) {
-    try{
+  async SaveSupplyByTagNo(req, res) {
+    try {
       const dateNow = moment(new Date()).format("YYYY-MM-DD");
       const itemNo = 0;
-      const {tranNo,requestNo,qtyBox,partNo,machine,factory,fullName,amountReq,tranSupply,lotNo,
-             tagNo,rollerNo,rollerDetail,userSupply} = req.body ;
+      const {
+        tranNo,
+        requestNo,
+        qtyBox,
+        partNo,
+        machine,
+        factory,
+        fullName,
+        amountReq,
+        tranSupply,
+        lotNo,
+        tagNo,
+        rollerNo,
+        rollerDetail,
+        userSupply,
+      } = req.body;
       console.log(req.body);
       let qtySum;
       const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
-      const resultSupply = await pool
- 
-      .request()
-      .query(`SELECT supply_code,partno,sum(qty_box) as sumqty from tbl_csupply where supply_code = @supplyCode and partno = @partNo
+      const resultSupply = await pool.request()
+        .query(`SELECT supply_code,partno,sum(qty_box) as sumqty from tbl_csupply where supply_code = @supplyCode and partno = @partNo
         and fac_supply = @factory and status = 'USE' group by supply_code,partno`);
 
-        // ถ้ามีข้อมูล
-        if(resultSupply && resultSupply.recordset?.length > 0) {
-          qtySum = Number(resultSupply.recordset[0].sumqty);
-        }else{
-          qtySum = 0;
-        }
+      // ถ้ามีข้อมูล
+      if (resultSupply && resultSupply.recordset?.length > 0) {
+        qtySum = Number(resultSupply.recordset[0].sumqty);
+      } else {
+        qtySum = 0;
+      }
 
-        // Update Supply
-        let updateSupply = ``;
+      // Update Supply
+      let updateSupply = ``;
 
-        updateSupply += `UPDATE tbl_crequestsupply SET supply_ok = ${Number(qtySum) + Number(qtyBox)},`
-        if(Number(amountReq) <= (Number(qtySum) + Number(qtyBox))) {
-          updateSupply += `status_finish = 'Y',`
-        }
-          updateSupply += `lastupdate_by = @fullName,lastupdate_date = convert(varchar(16),Getdate(),120) where [tran_no] = @requestNo AND [partno] = @partNo`
-       
-        const update = await pool
+      updateSupply += `UPDATE tbl_crequestsupply SET supply_ok = ${
+        Number(qtySum) + Number(qtyBox)
+      },`;
+      if (Number(amountReq) <= Number(qtySum) + Number(qtyBox)) {
+        updateSupply += `status_finish = 'Y',`;
+      }
+      updateSupply += `lastupdate_by = @fullName,lastupdate_date = convert(varchar(16),Getdate(),120) where [tran_no] = @requestNo AND [partno] = @partNo`;
+
+      const update = await pool
         .request()
-        .input("fullName",sql.NVarChar,fullName)
-        .input("requestNo",sql.NVarChar,requestNo)
-        .input("partNo",sql.NVarChar,partNo)
-        .query(updateSupply)
+        .input("fullName", sql.NVarChar, fullName)
+        .input("requestNo", sql.NVarChar, requestNo)
+        .input("partNo", sql.NVarChar, partNo)
+        .query(updateSupply);
 
-
-        const insertSupply = await pool
+      const insertSupply = await pool
         .request()
-        .input("tran_no",sql.NVarChar,tranSupply)
-        .input("tran_date",sql.DateTime,dateNow)
-        .input("items",sql.Int,Number(tranSupply.slice(-5))) //SUP23110900020 -> 00020 -> 20
-        .input("item_no",sql.Int,itemNo)
-        .input("supply_code",sql.NVarChar,requestNo)
-        .input("tran_rev",sql.NVarChar,tranNo)
-        .input("lot_no",sql.NVarChar,lotNo)
-        .input("partno",sql.NVarChar,partNo)
-        .input("mach_name",sql.NVarChar,machine)
-        .input("tagno",sql.NVarChar,tagNo)
-        .input("itemtag",sql.Int,itemTag)
-        .input("fac_supply",sql.NVarChar,factory)
-        .input("user_supply",sql.NVarChar,userSupply)
-        .input("qty_box",sql.Float,qtyBox)
-        .input("roller_no",sql.NVarChar,rollerNo)
-        .input("roller_detail",sql.NVarChar,rollerDetail)
-        .input("status",sql.NVarChar,'USE')
-        .input("create_by",sql.NVarChar,fullName)
+        .input("tran_no", sql.NVarChar, tranSupply)
+        .input("tran_date", sql.DateTime, dateNow)
+        .input("items", sql.Int, Number(tranSupply.slice(-5))) //SUP23110900020 -> 00020 -> 20
+        .input("item_no", sql.Int, itemNo)
+        .input("supply_code", sql.NVarChar, requestNo)
+        .input("tran_rev", sql.NVarChar, tranNo)
+        .input("lot_no", sql.NVarChar, lotNo)
+        .input("partno", sql.NVarChar, partNo)
+        .input("mach_name", sql.NVarChar, machine)
+        .input("tagno", sql.NVarChar, tagNo)
+        .input("itemtag", sql.Int, itemTag)
+        .input("fac_supply", sql.NVarChar, factory)
+        .input("user_supply", sql.NVarChar, userSupply)
+        .input("qty_box", sql.Float, qtyBox)
+        .input("roller_no", sql.NVarChar, rollerNo)
+        .input("roller_detail", sql.NVarChar, rollerDetail)
+        .input("status", sql.NVarChar, "USE")
+        .input("create_by", sql.NVarChar, fullName)
         .query(`INSERT INTO tbl_csupply (tran_no,tran_date,items,item_no,supply_code,tran_rev,lot_no,partno,mach_name,tagno,itemtag,fac_supply,user_supply,qty_box,roller_no,roller_detail,status,create_by,create_date,status_closesupply)
           VALUES (@tran_no,@tran_date,@items,@item_no,@supply_code,@tran_rev,@lot_no,@partno,@mach_name,@tagno,@itemtag,@fac_supply,@user_supply,@qty_box,@roller_no,@roller_detail,@status,@create_by,convert(varchar(16),Getdate(),120),'NO')
-          `)
+          `);
 
+      let stmtUpdateStock = `update tbl_cstockdetail set status_supply = 'Y',`;
+      if (factory == "Expire_Lot") {
+        stmtUpdateStock += `status_active = 'EXP',`;
+      }
+      stmtUpdateStock += `lastupdate_by = @fullName,lastupdate_date = convert(varchar(16),Getdate(),120) WHERE [tagno] = @tagNo AND [lot_no] = @lotNo`;
 
-          let stmtUpdateStock = `update tbl_cstockdetail set status_supply = 'Y',`;
-          if(factory == "Expire_Lot") {
-            stmtUpdateStock += `status_active = 'EXP',`
-          }
-          stmtUpdateStock += `lastupdate_by = @fullName,lastupdate_date = convert(varchar(16),Getdate(),120) WHERE [tagno] = @tagNo AND [lot_no] = @lotNo`
+      const updateStockDt = await pool
+        .request()
+        .input("fullName", sql.NVarChar, fullName)
+        .input("tagNo", sql.NVarChar, tagNo)
+        .input("lotNo", sql.NVarChar, lotNo)
+        .query(stmtUpdateStock);
 
-          const updateStockDt = await pool
-          .request()
-          .input("fullName",sql.NVarChar,fullName)
-          .input("tagNo",sql.NVarChar,tagNo)
-          .input("lotNo",sql.NVarChar,lotNo)
-          .query(stmtUpdateStock);
+      const updateStock = await pool
+        .request()
+        .input("fullName", sql.NVarChar, fullName)
+        .input("partNo", sql.NVarChar, partNo)
+        .input("rollerNo", sql.NVarChar, rollerNo)
+        .query(`UPDATE tbl_cstockmetal SET remain = remain - ${Number(qtyBox)},
+          supply = supply + ${Number(
+            qtyBox
+          )},lastupdate_by = @fullName,lastupdate_date = convert(varchar(16),Getdate(),120) 
+          WHERE [partno] = @partNo AND [roller_no] = @rollerNo`);
 
-
-          const updateStock = await pool
-          .request()
-          .input("fullName",sql.NVarChar,fullName)
-          .input("partNo",sql.NVarChar,partNo)
-          .input("rollerNo",sql.NVarChar,rollerNo)
-          .query(`UPDATE tbl_cstockmetal SET remain = remain - ${Number(qtyBox)},
-          supply = supply + ${Number(qtyBox)},lastupdate_by = @fullName,lastupdate_date = convert(varchar(16),Getdate(),120) 
-          WHERE [partno] = @partNo AND [roller_no] = @rollerNo`)
-          
-          if((updateStock && updateStock.rowsAffected[0] > 0) && (updateStockDt && updateStockDt.rowsAffected[0] > 0)) {
-            return res.json({
-
-            })
-          }else{
-            return res.json({
-              err:true,
-              msg: "Error!, Update Stock"
-            })
-          }
-
-   
-
-
-    }catch (err) {
+      if (
+        updateStock &&
+        updateStock.rowsAffected[0] > 0 &&
+        updateStockDt &&
+        updateStockDt.rowsAffected[0] > 0
+      ) {
+        return res.json({});
+      } else {
+        return res.json({
+          err: true,
+          msg: "Error!, Update Stock",
+        });
+      }
+    } catch (err) {
       return res.json({
         err: true,
         msg: err.message,
@@ -2584,179 +2707,240 @@ class AdhesiveController {
     }
   }
 
-  async DeleteAdhesivePlan(req,res) {
-    try{
-      const {id} = req.params ;
+  async DeleteAdhesivePlan(req, res) {
+    try {
+      const { id } = req.params;
       const pool = await new sql.ConnectionPool(sqlConfig).connect();
       const deletePlan = await pool
         .request()
-        .input("id",sql.Int,id)
+        .input("id", sql.Int, id)
         .query(`DELETE FROM [dbo].[TBL_ADHESIVE_PLAN] WHERE [Id] = @id`);
 
-        if(deletePlan && deletePlan.rowsAffected[0] > 0) {
-          return res.json({
-            err:false,
-            msg:"Plan deleted!",
-            status : "Ok"
-          })
-        }else{
-          return res.json({
-            err:true,
-            msg:"Error, Delete plan"
-          })
-        }
-
-    }catch(err) {
+      if (deletePlan && deletePlan.rowsAffected[0] > 0) {
+        return res.json({
+          err: false,
+          msg: "Plan deleted!",
+          status: "Ok",
+        });
+      } else {
+        return res.json({
+          err: true,
+          msg: "Error, Delete plan",
+        });
+      }
+    } catch (err) {
       console.log(err);
       return res.json({
         err: true,
         msg: err.message,
       });
-      
     }
   }
 
-  async AddAdhesivePlan(req,res) {
-    try{
-      const {partNo,phLine,glueType,qty,datePlate,fullName} = req.body ;
+  async AddAdhesivePlan(req, res) {
+    try {
+      const { partNo, phLine, glueType, qty, datePlate, fullName } = req.body;
       console.log(req.body);
-      
-      if(!partNo || !phLine || !glueType || !qty || !datePlate || !fullName){
+
+      if (!partNo || !phLine || !glueType || !qty || !datePlate || !fullName) {
         return res.json({
-          err:true,
-          msg:"Data is required!"
-        })
+          err: true,
+          msg: "Data is required!",
+        });
       }
 
       const pool = await new sql.ConnectionPool(sqlConfig).connect();
 
-      const checkPlan = await pool.request()
-      .input("partNo",sql.NVarChar,partNo)
-      .input("glueType",sql.NVarChar,glueType)
-      .query(`SELECT * FROM [dbo].[TBL_ADHESIVE_PLAN] WHERE [PART_NO] = @partNo AND [GLUE_TYPE] = @glueType AND [DATE_PLATE] = '${datePlate}'`)
+      const checkPlan = await pool
+        .request()
+        .input("partNo", sql.NVarChar, partNo)
+        .input("glueType", sql.NVarChar, glueType)
+        .query(
+          `SELECT * FROM [dbo].[TBL_ADHESIVE_PLAN] WHERE [PART_NO] = @partNo AND [GLUE_TYPE] = @glueType AND [DATE_PLATE] = '${datePlate}'`
+        );
 
-      if(checkPlan && checkPlan?.recordset?.length > 0) {
+      if (checkPlan && checkPlan?.recordset?.length > 0) {
         pool.close();
         return res.json({
-          err:true,
-          msg:"Plan Duplicated!"
-        })
+          err: true,
+          msg: "Plan Duplicated!",
+        });
       }
 
       const insert = await pool
         .request()
-        .input("partNo",sql.NVarChar,partNo)
-        .input("phLine",sql.NVarChar,phLine)
-        .input("glueType",sql.NVarChar,glueType)
-        .input("qty",sql.Int,qty)
-        .input("datePlate",sql.Date,datePlate)
-        .input("datePlan",sql.Date,moment(datePlate).add(1,"days").format("YYYY-MM-DD"))
-        .input("fullName",sql.NVarChar,fullName)
+        .input("partNo", sql.NVarChar, partNo)
+        .input("phLine", sql.NVarChar, phLine)
+        .input("glueType", sql.NVarChar, glueType)
+        .input("qty", sql.Int, qty)
+        .input("datePlate", sql.Date, datePlate)
+        .input(
+          "datePlan",
+          sql.Date,
+          moment(datePlate).add(1, "days").format("YYYY-MM-DD")
+        )
+        .input("fullName", sql.NVarChar, fullName)
         .query(`INSERT INTO [dbo].[TBL_ADHESIVE_PLAN] ([PART_NO],[PH_LINE],[GLUE_TYPE],[QTY],[DATE_PLAN],[DATE_PLATE],[CREATED_AT],[CREATED_BY]) 
           VALUES (@partNo,@phLine,@glueType,@qty,@datePlan,@datePlate,GETDATE(),@fullName)`);
 
-        if(insert && insert.rowsAffected[0] > 0) {
-          pool.close();
-          return res.json({
-            err:false,
-            msg:"Plan Added!",
-            status : "Ok"
-          })
-        }else{
-          pool.close();
-          return res.json({
-            err:true,
-            msg:"Error, Add plan"
-          })
-        }
-
-    }catch(err) {
+      if (insert && insert.rowsAffected[0] > 0) {
+        pool.close();
+        return res.json({
+          err: false,
+          msg: "Plan Added!",
+          status: "Ok",
+        });
+      } else {
+        pool.close();
+        return res.json({
+          err: true,
+          msg: "Error, Add plan",
+        });
+      }
+    } catch (err) {
       console.log(err);
       return res.json({
         err: true,
         msg: err.message,
       });
-      
     }
   }
 
-
-  async UpdateAdhesivePlan(req,res) {
-    try{
-      const {id} = req.params;
-      const {partNo,phLine,glueType,qty,datePlate,fullName} = req.body ;
+  async UpdateAdhesivePlan(req, res) {
+    try {
+      const { id } = req.params;
+      const { partNo, phLine, glueType, qty, datePlate, fullName } = req.body;
       console.log(req.body);
-      
-      if(!partNo || !phLine || !glueType || !qty || !datePlate || !fullName){
+
+      if (!partNo || !phLine || !glueType || !qty || !datePlate || !fullName) {
         return res.json({
-          err:true,
-          msg:"Data is required!"
-        })
+          err: true,
+          msg: "Data is required!",
+        });
       }
 
       const pool = await new sql.ConnectionPool(sqlConfig).connect();
 
-      const oldPlan = await pool.request()
-      .input("id",sql.Int,id)
-      .query(`SELECT * FROM [dbo].[TBL_ADHESIVE_PLAN] WHERE [Id] = @id`);
-
-      if(oldPlan && oldPlan?.recordset?.length > 0) {
-        
-      const checkPlan = await pool.request()
-      .input("partNo",sql.NVarChar,partNo)
-      .input("glueType",sql.NVarChar,glueType)
-      .input("id",sql.Int,id)
-      .query(`SELECT * FROM [dbo].[TBL_ADHESIVE_PLAN] WHERE [PART_NO] = @partNo 
-        AND [GLUE_TYPE] = @glueType AND [DATE_PLATE] = '${datePlate}' AND [Id] != @id
-        `)
-
-      if(checkPlan && checkPlan?.recordset?.length > 0) {
-        pool.close();
-        return res.json({
-          err:true,
-          msg:"Plan Duplicated!"
-        })
-      }
-
-      const update = await pool
+      const oldPlan = await pool
         .request()
-        .input("partNo",sql.NVarChar,partNo)
-        .input("phLine",sql.NVarChar,phLine)
-        .input("glueType",sql.NVarChar,glueType)
-        .input("qty",sql.Int,qty)
-        .input("datePlate",sql.Date,datePlate)
-        .input("datePlan",sql.Date,moment(datePlate).add(1,"days").format("YYYY-MM-DD"))
-        .input("fullName",sql.NVarChar,fullName)
-        .input("id",sql.Int,id)
-        .query(`UPDATE [dbo].[TBL_ADHESIVE_PLAN] SET [PART_NO] = @partNo,
+        .input("id", sql.Int, id)
+        .query(`SELECT * FROM [dbo].[TBL_ADHESIVE_PLAN] WHERE [Id] = @id`);
+
+      if (oldPlan && oldPlan?.recordset?.length > 0) {
+        const checkPlan = await pool
+          .request()
+          .input("partNo", sql.NVarChar, partNo)
+          .input("glueType", sql.NVarChar, glueType)
+          .input("id", sql.Int, id)
+          .query(`SELECT * FROM [dbo].[TBL_ADHESIVE_PLAN] WHERE [PART_NO] = @partNo 
+        AND [GLUE_TYPE] = @glueType AND [DATE_PLATE] = '${datePlate}' AND [Id] != @id
+        `);
+
+        if (checkPlan && checkPlan?.recordset?.length > 0) {
+          pool.close();
+          return res.json({
+            err: true,
+            msg: "Plan Duplicated!",
+          });
+        }
+
+        const update = await pool
+          .request()
+          .input("partNo", sql.NVarChar, partNo)
+          .input("phLine", sql.NVarChar, phLine)
+          .input("glueType", sql.NVarChar, glueType)
+          .input("qty", sql.Int, qty)
+          .input("datePlate", sql.Date, datePlate)
+          .input(
+            "datePlan",
+            sql.Date,
+            moment(datePlate).add(1, "days").format("YYYY-MM-DD")
+          )
+          .input("fullName", sql.NVarChar, fullName)
+          .input("id", sql.Int, id)
+          .query(`UPDATE [dbo].[TBL_ADHESIVE_PLAN] SET [PART_NO] = @partNo,
           [PH_LINE] = @phLine,[GLUE_TYPE] = @glueType,[QTY] = @qty,[DATE_PLAN] = @datePlan,
           [DATE_PLATE] = @datePlate,[UPDATED_AT] = GETDATE(),[UPDATED_BY] = @fullName WHERE [Id] = @id`);
 
-        if(update && update.rowsAffected[0] > 0) {
+        if (update && update.rowsAffected[0] > 0) {
           pool.close();
           return res.json({
-            err:false,
-            msg:"Plan Updated!",
-            status : "Ok"
-          })
-        }else{
+            err: false,
+            msg: "Plan Updated!",
+            status: "Ok",
+          });
+        } else {
           pool.close();
           return res.json({
-            err:true,
-            msg:"Error, Update plan"
-          })
+            err: true,
+            msg: "Error, Update plan",
+          });
         }
       }
-
-    }catch(err) {
+    } catch (err) {
       console.log(err);
       return res.json({
         err: true,
         msg: err.message,
       });
-      
     }
   }
 
+  async DeleteTrialAdhesive(req, res) {
+    const { idAc, idNg, code } = req.params;
+    const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+    let deletedAc = false;
+    let deletedNg = false;
+
+    try {
+      const pool = await new sql.ConnectionPool(sqlConfig).connect();
+      if (idAc !== "null" && idAc !== "" && idAc !== null) {
+        const deleteAc = await pool
+          .request()
+          .input("id", sql.Int, idAc)
+          .query(`DELETE FROM [dbo].[TBL_ACTUAL_ADHESIVE] WHERE Id = @id`);
+        if (deleteAc && deleteAc?.rowsAffected > 0) {
+          deletedAc = true;
+        }
+      }
+      if (idNg !== "null" && idNg !== "" && idNg !== null) {
+        const deleteNg = await pool
+        .request()
+        .input("id", sql.Int, idNg)
+        .query(`DELETE FROM [dbo].[TBL_NG_ADHESIVE] WHERE Id = @id`);
+
+        if (deleteNg && deleteNg?.rowsAffected > 0) {
+          deletedNg = true;
+        }
+      }
+   
+
+      if (deletedNg || deletedAc) {
+        // Save Logs Danger
+        await utils.SaveLogs(
+          `Delete Actual Trial Id : ${idAc},Delete NG Trial Id : ${idNg}`,
+          ip,
+          code
+        );
+
+        return res.json({
+          err: false,
+          msg: "Deleted!",
+          status: "Ok",
+        });
+      } else {
+        return res.json({
+          err: true,
+          msg: "Something went wrong!",
+        });
+      }
+    } catch (err) {
+      console.log(err);
+      return res.json({
+        err: true,
+        msg: err.message,
+      });
+    }
+  }
 }
 module.exports = AdhesiveController;

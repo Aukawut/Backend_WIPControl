@@ -460,13 +460,16 @@ SELECT
         .request()
         .query(`WITH CTE_ACTUAL as (
                 SELECT m.DATE_PLATE,SUM(m.ActualQty) as SumActual,SUM(m.QTY) as SumQtyPlan FROM (
-                SELECT p.*,ISNULL(a.QTY,0) as ActualQty FROM [dbo].[TBL_ADHESIVE_PLAN] p LEFT JOIN  
+                SELECT p.*,ISNULL(
+				CASE WHEN a.TRIAL != 'Y' THEN a.QTY ELSE 0 END
+				
+				,0) as ActualQty FROM [dbo].[TBL_ADHESIVE_PLAN] p LEFT JOIN  
                 [dbo].[TBL_ACTUAL_ADHESIVE] a ON p.PART_NO = a.PART_NO AND p.PH_LINE = a.PH_LINE AND 
-                p.DATE_PLATE = a.DATE_PLATE ) m 
+                p.DATE_PLATE = a.DATE_PLATE  ) m 
                 GROUP BY m.DATE_PLATE ) 
                 SELECT ca.*,ISNULL(ng.Qty_NG,0) as SumQtyNG,ISNULL(ca.SumQtyPlan,0) - ISNULL(ca.SumActual,0) as SumDiff  FROM CTE_ACTUAL ca
                 LEFT JOIN  (
-                SELECT SUM(NG_QTY) as Qty_NG,nga.PLATE_DATE FROM [dbo].[TBL_NG_ADHESIVE] nga GROUP BY nga.PLATE_DATE
+                SELECT SUM(NG_QTY) as Qty_NG,nga.PLATE_DATE FROM [dbo].[TBL_NG_ADHESIVE] nga WHERE nga.TRIAL != 'Y' GROUP BY nga.PLATE_DATE
                 ) ng ON ca.DATE_PLATE = ng.PLATE_DATE WHERE ca.DATE_PLATE BETWEEN '${start}' AND '${end}'`) ;
         if(results && results.recordset?.length > 0 ) {
             pool.close();
@@ -579,8 +582,8 @@ SELECT
         .request()
         .query(`SELECT a.*,a.Qty_Plan - a.Qty_Prd as DiffQty FROM (
                 SELECT ( SELECT SUM(QTY) as Qty_Plan FROM [dbo].[TBL_ADHESIVE_PLAN] WHERE DATE_PLATE BETWEEN '${start}' AND '${end}') as Qty_Plan,
-                (SELECT SUM(QTY) as Qty_Prd FROM [dbo].[TBL_ACTUAL_ADHESIVE] WHERE DATE_PLATE BETWEEN '${start}' AND '${end}')  as Qty_Prd,
-                (SELECT SUM(NG_QTY) as Ng_Qty FROM [dbo].[TBL_NG_ADHESIVE] WHERE PLATE_DATE BETWEEN '${start}' AND '${end}')  as Ng_Qty) a`) ;
+                (SELECT SUM(QTY) as Qty_Prd FROM [dbo].[TBL_ACTUAL_ADHESIVE] WHERE (DATE_PLATE BETWEEN '${start}' AND '${end}') AND TRIAL != 'Y')  as Qty_Prd,
+                (SELECT SUM(NG_QTY) as Ng_Qty FROM [dbo].[TBL_NG_ADHESIVE] WHERE (PLATE_DATE BETWEEN '${start}' AND '${end}') AND TRIAL != 'Y')  as Ng_Qty) a`) ;
         if(results && results.recordset?.length > 0 ) {
             pool.close();
             return res.json({
@@ -739,9 +742,9 @@ SELECT
         const results = await pool
         .request()
         .query(`SELECT (SELECT SUM(QTY) FROM TBL_ADHESIVE_PLAN WHERE DATE_PLATE BETWEEN '${start}' AND '${end}') AS Qty_Plan,
-					(SELECT SUM(QTY) FROM TBL_ACTUAL_ADHESIVE WHERE DATE_PLATE BETWEEN '${start}' AND '${end}') AS Qty_Prd,
+					(SELECT SUM(QTY) FROM TBL_ACTUAL_ADHESIVE WHERE (DATE_PLATE BETWEEN '${start}' AND '${end}') AND [TRIAL] != 'Y') AS Qty_Prd,
 					(SELECT SUM(QTY) FROM TBL_ADHESIVE_PLAN WHERE DATE_PLATE BETWEEN '${start}' AND '${end}') - (SELECT SUM(QTY) FROM TBL_ACTUAL_ADHESIVE WHERE DATE_PLATE BETWEEN '${start}' AND '${end}')  as  DiffQty,
-					(SELECT SUM(NG_QTY) FROM TBL_NG_ADHESIVE WHERE PLATE_DATE BETWEEN '${start}' AND '${end}') AS Ng_Qty`) ;
+					(SELECT SUM(NG_QTY) FROM TBL_NG_ADHESIVE WHERE (PLATE_DATE BETWEEN '${start}' AND '${end}') AND [TRIAL] != 'Y') AS Ng_Qty`) ;
         if(results && results.recordset?.length > 0 ) {
             pool.close();
             return res.json({

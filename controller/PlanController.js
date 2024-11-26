@@ -82,7 +82,16 @@ class PlanController {
         .input("start",sql.Date,start)
         .input("end",sql.Date,end)
         .query(
-          `SELECT * FROM [dbo].[TBL_ADHESIVE_PLAN] WHERE [DATE_PLATE] BETWEEN @start AND @end ORDER BY DATE_PLATE DESC`
+          `SELECT p.*,ISNULL(ac.QTY,0) as AC_QTY,ISNULL(ng.NG_QTY,0) as NG_QTY  FROM [dbo].[TBL_ADHESIVE_PLAN] p 
+          LEFT JOIN (SELECT SUM(QTY) as QTY,DATE_PLATE,PART_NO,GLUE_TYPE,PH_LINE 
+          FROM TBL_ACTUAL_ADHESIVE WHERE TRIAL != 'Y' GROUP BY  DATE_PLATE,PART_NO,GLUE_TYPE,PH_LINE) ac ON p.PART_NO = ac.PART_NO AND
+          CONVERT(DATE,p.DATE_PLATE) = CONVERT(DATE,ac.DATE_PLATE) AND
+          p.GLUE_TYPE = ac.GLUE_TYPE AND p.PH_LINE = ac.PH_LINE
+          LEFT JOIN (SELECT SUM(NG_QTY) as NG_QTY,PLATE_DATE,PART_NO 
+          FROM TBL_NG_ADHESIVE WHERE TRIAL != 'Y' GROUP BY  PLATE_DATE,PART_NO) ng ON p.DATE_PLATE = ng.PLATE_DATE 
+          AND ng.PART_NO COLLATE Thai_CI_AI  = p.PART_NO COLLATE Thai_CI_AI 
+          WHERE p.[DATE_PLATE] BETWEEN '${start}' AND '${end}' 
+          ORDER BY DATE_PLATE DESC`
         );
 
       if (results && results?.recordset?.length > 0) {
@@ -110,7 +119,7 @@ class PlanController {
   async SaveAdhesivePlan(req, res) {
     try {
       let inserted = 0;
-      const { plan, date } = req.body;
+      const { plan, date,fullName } = req.body;
       const dailayPlan = JSON.parse(plan);
     
       
@@ -142,6 +151,7 @@ class PlanController {
         for (let i = 0; i < dailayPlan?.length; i++) {
           const save = await pool
             .request()
+            .input("fullName", sql.NVarChar, fullName)
             .input("partNo", sql.NVarChar, dailayPlan[i].partNo)
             .input("phLine", sql.NVarChar, dailayPlan[i].phLine)
             .input("refFile", sql.NVarChar, req.file.filename)
@@ -149,8 +159,8 @@ class PlanController {
             .input("qty", sql.Int, dailayPlan[i].qty)
             .input("pnDate", sql.Date, moment(date).add(1, "days").format("YYYY-MM-DD")) // แผนการผลิต + 1
             .input("pDate", sql.Date, date) // แผนชุบเหล็ก
-            .query(`INSERT INTO [dbo].[TBL_ADHESIVE_PLAN] ([PART_NO],[PH_LINE],[GLUE_TYPE],[QTY],[DATE_PLAN],[DATE_PLATE],[FILE_REF]) 
-                    VALUES (@partNo,@phLine,@adhesiveType,@qty,@pnDate,@pDate,@refFile)`);
+            .query(`INSERT INTO [dbo].[TBL_ADHESIVE_PLAN] ([PART_NO],[PH_LINE],[GLUE_TYPE],[QTY],[DATE_PLAN],[DATE_PLATE],[FILE_REF],[CREATED_BY]) 
+                    VALUES (@partNo,@phLine,@adhesiveType,@qty,@pnDate,@pDate,@refFile,@fullName)`);
 
           if (save && save?.rowsAffected[0] > 0) {
             inserted++;

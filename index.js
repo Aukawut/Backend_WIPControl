@@ -158,6 +158,7 @@ app.get("/adhesive/actual",adhesive.GetAdhesiveActual);
 app.get("/adhesive/actual/:start/:end",adhesive.GetAdhesiveActualByDate);
 app.post("/adhesive/actual/save",adhesive.SaveActual);
 app.put("/adhesive/actual/update/:id",adhesive.UpdateActual);
+// app.put("/adhesive/actual/update/:id",adhesive.UpdateActual);
 app.post("/adhesive/request/metal",adhesive.RequestMetal);
 app.get("/adhesive/request/metal/:reqNo",adhesive.GetMetalRequestByReqNo);
 app.get("/request/metal/:factory",adhesive.GetMetalRequestByFactory);
@@ -210,6 +211,7 @@ app.post("/plan/adhesive/add",adhesive.AddAdhesivePlan);
 app.put("/plan/adhesive/update/:id",adhesive.UpdateAdhesivePlan);
 app.get("/metalRequest/wait",adhesive.GetReqMetalWaitApprove)
 app.get("/metalRequest/waitclose",adhesive.GetReqMetalWaitClose)
+app.delete("/trial/adhesive/:idAc/:idNg/:code",adhesive.DeleteTrialAdhesive)
 
 
 
@@ -258,6 +260,7 @@ app.put("/lotcontrol/cancel/:lotNo",lotControl.CancelLot)
 app.get("/machineMaster",mc.GetMachineMaster)
 app.get("/machine",mc.GetMachine)
 app.get("/machine/:name",mc.GetMachineNoByName)
+app.get("/machine/list/adhisive",mc.GetAVP2Machine)
 
 // <------ Part Controller -------->
 app.get("/parts",part.GetPartMaster);

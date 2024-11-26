@@ -1,10 +1,9 @@
 const sql = require("mssql");
 const jwt = require("jsonwebtoken");
-const { sqlConfig ,sqlConfigApp02} = require("../config/config");
+const { sqlConfig, sqlConfigApp02 } = require("../config/config");
 const nodemailer = require("nodemailer");
 const moment = require("moment");
-const QRCode = require('qrcode');
-
+const QRCode = require("qrcode");
 
 require("dotenv").config();
 
@@ -277,50 +276,48 @@ class Utils {
     }
   }
 
-
-  async CheckTagsSupplyFinished (tags,lotNo) {
-    try{
+  async CheckTagsSupplyFinished(tags, lotNo) {
+    try {
       const pool = await new sql.ConnectionPool(sqlConfigApp02).connect();
       let tagError = 0;
       let statusTagError = 0;
 
-      for(let i = 0; i < tags?.length ; i++){
-    
-     
-        
-      const results = await pool
-      .request()
-      .input("tag",sql.NVarChar,tags[i].tagno)
-      .input("lotNo",sql.NVarChar,lotNo)
-      .query(`SELECT lot_no,status_supply,status_active FROM tbl_cstockdetail WHERE lot_no = @lotNo AND tagno = @tag`);
-    
-      if(results && results.recordset?.length > 0){
-        
-        
-        if(results?.recordset[0].status_supply == "Y" ){
-        // บาง Tag ถูก Supply
-        tagError ++
-        }
+      for (let i = 0; i < tags?.length; i++) {
+        const results = await pool
+          .request()
+          .input("tag", sql.NVarChar, tags[i].tagno)
+          .input("lotNo", sql.NVarChar, lotNo)
+          .query(
+            `SELECT lot_no,status_supply,status_active FROM tbl_cstockdetail WHERE lot_no = @lotNo AND tagno = @tag`
+          );
 
-        // งาน HOLD หรือ NG
-        if(results?.recordset[0].status_active == "NG" || results?.recordset[0].status_active == "HOLD"){s
-          statusTagError ++ ;
+        if (results && results.recordset?.length > 0) {
+          if (results?.recordset[0].status_supply == "Y") {
+            // บาง Tag ถูก Supply
+            tagError++;
+          }
+
+          // งาน HOLD หรือ NG
+          if (
+            results?.recordset[0].status_active == "NG" ||
+            results?.recordset[0].status_active == "HOLD"
+          ) {
+            s;
+            statusTagError++;
+          }
         }
       }
-    
-    }
-    if(tagError > 0) {
-      return {err:true,msg:"tag error"};
-    }else if(statusTagError > 0){
-      return {err:true,msg:"tag status error"};
-
-    }else{
-      return {err:false,msg:"Done"};
-    }
-    }catch(err){
+      if (tagError > 0) {
+        return { err: true, msg: "tag error" };
+      } else if (statusTagError > 0) {
+        return { err: true, msg: "tag status error" };
+      } else {
+        return { err: false, msg: "Done" };
+      }
+    } catch (err) {
       console.log(err);
-      
-      return {err:true,msg:"Something went wrong!"};
+
+      return { err: true, msg: "Something went wrong!" };
     }
   }
 
@@ -351,17 +348,21 @@ class Utils {
       J22065 -> 	Taihei.gotou@prospira.com
       P240075 -> 	rattikorn.klumkum@prospira.com
       P240070 -> 	kochuen.siew@prospira.com
-      030415 -> 	yupaporn.netsopa@prospira.com
+      000156 -> 	sirisak.jinajai@prospira.com
       */
       const approver = await pool.request()
         .query(`SELECT u.*,r.NAME_ROLE ,hr.Ad_Mail,hr.UHR_FullName_th,hr.UHR_FirstName_en,f.FACTORY_NAME
         FROM TBL_USERS u LEFT JOIN TBL_ROLE r ON u.ROLE = r.Id
 		LEFT JOIN TBL_FACTORY f ON u.FACTORY = f.Id
         LEFT JOIN [dbo].[V_AllUsers] hr ON u.EMP_CODE = hr.UHR_EmpCode
-        WHERE (r.NAME_ROLE = 'Admin' OR r.NAME_ROLE = 'Boss' OR (r.NAME_ROLE = 'Leader' AND f.FACTORY_NAME = 'AVP2' ))
-		AND (AD_Mail IS NOT NULL AND EMP_CODE NOT IN ('J22065','P240075','P240070','030415','P230056'))`);
+        WHERE (r.NAME_ROLE = 'Admin' OR r.NAME_ROLE = 'Boss' 
+		OR (r.NAME_ROLE = 'Leader' AND f.FACTORY_NAME = 'AVP2' ))
+		AND (AD_Mail IS NOT NULL AND EMP_CODE NOT IN
+		('J22065','P240075','P240070','P230056','000156'))`);
+
       if (approver && approver?.recordset?.length > 0) {
         const approverList = approver.recordset;
+        console.log("reqNo", reqNo);
 
         let html = "";
         html += `<div style="font-size: 15px; font-family: 'Cordia New';">
@@ -373,6 +374,7 @@ class Utils {
             `SELECT a.*,t.token  FROM [dbo].[tbl_crequestsupply] a LEFT JOIN [dbo].[tbl_token_approve] t ON a.tran_no = t.req_transection
 WHERE tran_no = @reqNo ORDER BY items ASC`
           );
+
         if (response && response?.recordset?.length > 0) {
           html += `<h4><b>Dear, Admin WIP Control System </b></h4>
           <h4><b>ผู้ขอ : ${response.recordset[0].user_supply}</b></h4>
@@ -430,6 +432,7 @@ IT Developer - Thank you 😊`;
 
             // Loop Send Email to Approver.
             for (let j = 0; j < approverList.length; j++) {
+              console.log(approverList[j].Ad_Mail);
               const mail = {
                 from: "Request Metal AVP2 [Alert] <it.info-psth@prospira.com>", //from email (option)
                 // to: to, //to email (require)
@@ -452,11 +455,14 @@ IT Developer - Thank you 😊`;
             }
             // Approve list == count send mail successfully.
             if (approverList.length == sended) {
+              console.log(`Send email success (${approverList.length})`);
+
               return {
                 err: false,
                 msg: `Send email success (${approverList.length})`,
               };
             } else {
+              console.log(`Some email isn't send.`);
               return {
                 err: true,
                 msg: `Some email isn't send.`,
@@ -470,8 +476,12 @@ IT Developer - Thank you 😊`;
               msg: err,
             };
           }
+        } else {
+          return { err: true, msg: "Job Request is't Found" };
         }
       } else {
+        console.log("Admin isn't found.");
+
         return { err: true, msg: "Admin isn't found." };
       }
     } catch (err) {
@@ -602,6 +612,174 @@ IT Developer - Thank you 😊`;
     }
   }
 
+  async AdhesiveSaveProduction(
+    partNo,
+    phLine,
+    glue,
+    qty,
+    remark,
+    createdBy,
+    datePlate,
+    machine,
+    tray,
+    datePlan,
+    ip,
+    trial
+  ) {
+    try {
+      if(Number(qty) > 0) {
+      const pool = await new sql.ConnectionPool(sqlConfig).connect();
+      const results = await pool
+        .request()
+        .input("partNo", sql.NVarChar, partNo)
+        .input("phLine", sql.NVarChar, phLine)
+        .input("glue", sql.NVarChar, glue)
+        .input("qty", sql.Int, qty)
+        .input("remark", sql.VarChar, remark)
+        .input("createdBy", sql.NVarChar, createdBy)
+        .input("datePlate", sql.Date, datePlate)
+        .input("machine", sql.NVarChar, machine)
+        .input("tray", sql.Int, tray)
+        .input("datePlan", sql.Date, datePlan)
+        .input("ip", sql.NVarChar, ip)
+        .input("trial", sql.NVarChar, trial)
+        .query(
+          `INSERT INTO [dbo].[TBL_ACTUAL_ADHESIVE] ([PART_NO],[PH_LINE],[GLUE_TYPE],[QTY],[REMARK],[CREATED_BY],[DATE_PLATE],[DATE_PLAN],[IP],[BOOTH],[TRAY],[TRIAL]) 
+          VALUES (@partNo,@phLine,@glue,@qty,@remark,@createdBy,@datePlate,@datePlan,@ip,@machine,@tray,@trial)`
+        );
+      if (results && results.rowsAffected[0] > 0) {
+        return {
+          err: false,
+          status: "Ok",
+          msg: "Actual saved!",
+        };
+      } else {
+        return {
+          err: true,
+          msg: "Something went wrong!",
+        };
+      }
+    }else{
+      return {
+        err: false,
+        msg: "Not Qty",
+        status: "Ok",
+      }
+    }
+    } catch (err) {
+      return { err: true, msg: err };
+    }
+  }
+  async AdhesiveSaveNGProduction(planDate,plateDate,partNo,fullName,cause,remark,qty,trial) {
+    try {
+      if((Number(qty)) > 0) {
+      const pool = await new sql.ConnectionPool(sqlConfig).connect();
+      const insert = await pool
+          .request()
+          .input("planDate", sql.Date, planDate)
+          .input("plateDate", sql.Date, plateDate)
+          .input("partNo", sql.NVarChar, partNo)
+          .input("fullName", sql.NVarChar, fullName)
+          .input("cause", sql.NVarChar, cause)
+          .input("remark", sql.NVarChar, remark)
+          .input("qty", sql.Int, qty)
+          .input("trial", sql.NVarChar, trial)
+          .query(
+            `INSERT INTO [dbo].[TBL_NG_ADHESIVE] ([PART_NO],[PLAN_DATE],[PLATE_DATE],[CREATED_BY],[CAUSE],[NG_QTY],[REMARK],[FACTORY],[CREATED_AT],[TRIAL])
+           VALUES (@partNo,@planDate,@plateDate,@fullName,@cause,@qty,@remark,'AVP2',GETDATE(),@trial)
+         `
+          );
+        if (insert && insert.rowsAffected[0] > 0) {
+          pool.close();
+          return {
+            err: false,
+            msg: "Saved successfully!",
+            status: "Ok",
+          }
+        } else {
+          return {
+            err: true,
+            msg: "Something went wrong!",
+          }
+        }
+      }else{
+        return {
+          err: false,
+          msg: "Not Qty",
+          status: "Ok",
+        }
+      }
+    } catch (err) {
+      return { err: true, msg: err };
+    }
+  }
+
+ async UpdateNgAdhesive(id,fullName,remark,qty)  {
+  try{
+      const pool  = await new sql.ConnectionPool(sqlConfig).connect();
+
+      const update = await pool
+      .request()
+      .input("id",sql.Int,id)
+      .input("fullName",sql.NVarChar,fullName)
+      .input("qty",sql.Int,qty)
+      .input("remark",sql.NVarChar,remark)
+      .query(`UPDATE [dbo].[TBL_NG_ADHESIVE] 
+        SET [NG_QTY] = @qty,[UPDATED_BY] = @fullName , [UPDATED_AT] = GETDATE(),[CAUSE] = @remark WHERE [Id] = @id`)
+
+        if(update && update?.rowsAffected > 0) {
+          return {err :false , msg : "Updated"}
+        }else{
+          return {err :true , msg : "Update failed"}
+        }
+  }catch(err) {
+    return {err : true, msg : err}
+  }
+ }
+
+ async AdhesiveUpdateProduction(
+  machine,qty,remark,updatedBy,tray,id,ip
+) {
+  try {
+    if(Number(qty) > 0) {
+    const pool = await new sql.ConnectionPool(sqlConfig).connect();
+    const updated = await pool
+      .request()
+      .input("qty", sql.Int, qty)
+      .input("remark", sql.VarChar, remark)
+      .input("updatedBy", sql.NVarChar, updatedBy)
+      .input("machine", sql.NVarChar, machine)
+      .input("ip", sql.NVarChar, ip)
+      .input("tray", sql.Int, tray)
+      .input("id", sql.Int, id)
+      .query(
+        `UPDATE [dbo].[TBL_ACTUAL_ADHESIVE] SET [BOOTH] = @machine , [QTY] = @qty,[TRAY] = @tray,[REMARK] = @remark,[UPDATED_BY] = @updatedBy,
+        [UPDATED_AT] = GETDATE(),[IP] = @ip
+        WHERE [Id] = @id`
+      );
+    if (updated && updated.rowsAffected[0] > 0) {
+      return {
+        err: false,
+        status: "Ok",
+        msg: "Actual updated!",
+      };
+    } else {
+      return {
+        err: true,
+        msg: "Something went wrong!",
+      };
+    }
+  }else{
+    return {
+      err: false,
+      msg: "Not Qty",
+      status: "Ok",
+    }
+  }
+  } catch (err) {
+    return { err: true, msg: err };
+  }
+}
   
 }
 
