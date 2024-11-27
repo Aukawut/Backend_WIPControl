@@ -349,6 +349,8 @@ class Utils {
       P240075 -> 	rattikorn.klumkum@prospira.com
       P240070 -> 	kochuen.siew@prospira.com
       000156 -> 	sirisak.jinajai@prospira.com
+      PJ22001 -> tetsuji.nishino@prospira.com
+      P240071 -> yuta.sakamoto@prospira.com
       */
       const approver = await pool.request()
         .query(`SELECT u.*,r.NAME_ROLE ,hr.Ad_Mail,hr.UHR_FullName_th,hr.UHR_FirstName_en,f.FACTORY_NAME
@@ -358,7 +360,7 @@ class Utils {
         WHERE (r.NAME_ROLE = 'Admin' OR r.NAME_ROLE = 'Boss' 
 		OR (r.NAME_ROLE = 'Leader' AND f.FACTORY_NAME = 'AVP2' ))
 		AND (AD_Mail IS NOT NULL AND EMP_CODE NOT IN
-		('J22065','P240075','P240070','P230056','000156'))`);
+		('J22065','P240075','P240070','P230056','000156','P240071','PJ22001'))`);
 
       if (approver && approver?.recordset?.length > 0) {
         const approverList = approver.recordset;
