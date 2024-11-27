@@ -1763,16 +1763,31 @@ class AdhesiveController {
           for (let i = 0; i < items.length; i++) {
             console.log(planDate);
             let limit;
+            
+            // const checkPlan = await poolApp04
+            //   .request()
+            //   .input("factory", sql.NVarChar, factory)
+            //   .input("partNo", sql.NVarChar, items[i].partNo)
+            //   .query(`SELECT DISTINCT a.*,b.FG_PARTNO,b.RM_PARTNO FROM (
+            // SELECT PLAN_DATE,SUM(QTY) as SumQtyPlan,PART_NO,FACTORY 
+            // FROM [dbo].[TBL_MOLDING_PLAN] GROUP BY PLAN_DATE,PART_NO,FACTORY ) a
+            // LEFT JOIN [dbo].[TBL_BOMS] b ON a.PART_NO COLLATE Thai_CI_AI  = b.FG_PARTNO COLLATE Thai_CI_AI
+            // WHERE b.FG_PARTNO IS NOT NULL AND b.RM_PARTNO = @partNo AND a.SumQtyPlan > 0 
+            // AND a.PLAN_DATE = '${planDate}' AND a.FACTORY = @factory`);
+            
             const checkPlan = await poolApp04
               .request()
               .input("factory", sql.NVarChar, factory)
               .input("partNo", sql.NVarChar, items[i].partNo)
-              .query(`SELECT DISTINCT a.*,b.FG_PARTNO,b.RM_PARTNO FROM (
+              .query(`SELECT SUM(m.SumQtyPlan) as SumQtyPlan,m.RM_PARTNO,m.PLAN_DATE FROM (
+SELECT DISTINCT a.*,b.FG_PARTNO,b.RM_PARTNO FROM (
             SELECT PLAN_DATE,SUM(QTY) as SumQtyPlan,PART_NO,FACTORY 
             FROM [dbo].[TBL_MOLDING_PLAN] GROUP BY PLAN_DATE,PART_NO,FACTORY ) a
             LEFT JOIN [dbo].[TBL_BOMS] b ON a.PART_NO COLLATE Thai_CI_AI  = b.FG_PARTNO COLLATE Thai_CI_AI
             WHERE b.FG_PARTNO IS NOT NULL AND b.RM_PARTNO = @partNo AND a.SumQtyPlan > 0 
-            AND a.PLAN_DATE = '${planDate}' AND a.FACTORY = @factory`);
+            AND a.PLAN_DATE = '${planDate}' AND a.FACTORY = @factory ) m
+			GROUP BY m.RM_PARTNO,m.PLAN_DATE`);
+
             if (checkPlan && checkPlan?.recordset?.length > 0) {
               // ถ้ามีเหล็กมีในแผน Date Plan
               const supply = await pool
